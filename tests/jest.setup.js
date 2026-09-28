@@ -89,6 +89,16 @@ const createMockDb = () => {
           entry.status = status;
           entry.completedAt = completedAt;
         }
+      } else if (sql.includes('UPDATE entries SET text = ?')) {
+        const [text, type, signifier, date, time, id] = params;
+        const entry = entriesStore.find(e => e.id === id);
+        if (entry) {
+          entry.text = text;
+          entry.type = type;
+          entry.signifier = signifier;
+          entry.date = date;
+          entry.time = time;
+        }
       } else if (sql.includes('UPDATE entries SET date = ?')) {
         const [date, id] = params;
         const entry = entriesStore.find(e => e.id === id);

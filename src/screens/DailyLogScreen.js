@@ -43,6 +43,7 @@ import { AppText as Text } from '../components/Typography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import CustomDatePickerModal from '../components/CustomDatePickerModal';
+import EditEntryModal from '../components/EditEntryModal';
 import { useJournal, getFormattedDate } from '../context/JournalContext';
 import { useSettings } from '../context/SettingsContext';
 import SmartInput from '../components/SmartInput';
@@ -92,6 +93,7 @@ export default function DailyLogScreen({ navigation }) {
     deleteEntry,
     updateEntryDate,
     updateEntryDateTime,
+    updateEntry,
     reorderEntries,
   } = useJournal();
   const { theme, language, timezone, firstDayOfWeek = 'monday' } = useSettings();
@@ -126,7 +128,7 @@ export default function DailyLogScreen({ navigation }) {
   /** Controla la visibilidad del DatePicker para crear nueva entrada */
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  /** Entrada que el usuario quiere mover a otro día (pulsación larga) */
+  /** Entrada que el usuario está editando (pulsación larga) */
   const [reschedulingItem, setReschedulingItem] = useState(null);
 
   /** Fecha del día/semana/mes que se está visualizando actualmente */
@@ -272,10 +274,8 @@ export default function DailyLogScreen({ navigation }) {
     setReschedulingItem(item);
   };
 
-  const handleMoveEntryDate = (newDate, newTime) => {
-    if (!reschedulingItem) return;
-    const newDateStr = getFormattedDate(newDate, timezone);
-    updateEntryDateTime(reschedulingItem.id, newDateStr, newTime);
+  const handleSaveEditedEntry = (id, updatedFields) => {
+    updateEntry(id, updatedFields);
     setReschedulingItem(null);
   };
 
@@ -567,12 +567,12 @@ export default function DailyLogScreen({ navigation }) {
         onClose={() => setShowDatePicker(false)}
       />
 
-      {/* ── Modal: selector de fecha y hora para MOVER entrada existente ──── */}
-      <CustomDatePickerModal
+      {/* ── Modal: Edición completa de la entrada (texto, tipo, significador, fecha, hora) ──── */}
+      <EditEntryModal
         visible={!!reschedulingItem}
-        selectedDate={reschedulingItem?.date || currentLogDateStr}
-        selectedTime={reschedulingItem?.time || null}
-        onSelectDate={handleMoveEntryDate}
+        entry={reschedulingItem}
+        onSave={handleSaveEditedEntry}
+        onDelete={confirmDeleteEntry}
         onClose={() => setReschedulingItem(null)}
       />
 

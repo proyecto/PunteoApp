@@ -184,6 +184,40 @@ describe('JournalContext', () => {
     expect(dbEntries[0].date).toBe('2026-09-20');
   });
 
+  it('updates entry full fields with updateEntry', async () => {
+    const wrapper = ({ children }) => <JournalProvider>{children}</JournalProvider>;
+    const { result } = await renderHook(() => useJournal(), { wrapper });
+
+    await waitFor(() => expect(result.current).toBeTruthy());
+
+    const entry = createDailyEntry('Task to edit', 'task', '2026-09-16');
+    await act(async () => {
+      await result.current.addEntry(entry);
+    });
+
+    await act(async () => {
+      await result.current.updateEntry(entry.id, {
+        text: 'Edited task text',
+        type: 'event',
+        signifier: 'priority',
+        date: '2026-09-22',
+        time: '18:00',
+      });
+    });
+
+    const updated = result.current.entries.find(e => e.id === entry.id);
+    expect(updated.text).toBe('Edited task text');
+    expect(updated.type).toBe('event');
+    expect(updated.signifier).toBe('priority');
+    expect(updated.date).toBe('2026-09-22');
+    expect(updated.time).toBe('18:00');
+
+    const dbEntries = await EntryRepository.getAllEntries();
+    const dbUpdated = dbEntries.find(e => e.id === entry.id);
+    expect(dbUpdated.text).toBe('Edited task text');
+    expect(dbUpdated.type).toBe('event');
+  });
+
   it('reorders entries and updates order_index', async () => {
     const wrapper = ({ children }) => <JournalProvider>{children}</JournalProvider>;
     const { result } = await renderHook(() => useJournal(), { wrapper });

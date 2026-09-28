@@ -191,6 +191,9 @@ export const JournalProvider = ({ children }) => {
   /**
    * Actualiza la fecha y la hora de una entrada simultáneamente.
    */
+  /**
+   * Actualiza la fecha y la hora de una entrada simultáneamente.
+   */
   const updateEntryDateTime = useCallback(async (id, newDate, newTime) => {
     try {
       await EntryRepository.updateEntryDateTime(id, newDate, newTime);
@@ -199,6 +202,20 @@ export const JournalProvider = ({ children }) => {
       );
     } catch (e) {
       console.error('[JournalContext] Error al actualizar fecha y hora de entrada:', e);
+    }
+  }, []);
+
+  /**
+   * Actualiza los campos editables de una entrada (texto, tipo, significador, fecha, hora).
+   */
+  const updateEntry = useCallback(async (id, fields) => {
+    try {
+      await EntryRepository.updateEntry(id, fields);
+      setEntries(prev =>
+        prev.map(entry => entry.id === id ? { ...entry, ...fields } : entry)
+      );
+    } catch (e) {
+      console.error('[JournalContext] Error al actualizar entrada:', e);
     }
   }, []);
 
@@ -293,6 +310,7 @@ export const JournalProvider = ({ children }) => {
     updateEntryDate,
     updateEntryTime,
     updateEntryDateTime,
+    updateEntry,
     reorderEntries,
     lists,
     addList,
@@ -311,6 +329,7 @@ export const JournalProvider = ({ children }) => {
     updateEntryDate,
     updateEntryTime,
     updateEntryDateTime,
+    updateEntry,
     reorderEntries,
     addList,
     reorderLists,

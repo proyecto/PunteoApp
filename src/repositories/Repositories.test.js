@@ -79,6 +79,34 @@ describe('Repositories Integration with SQLite Store', () => {
       expect(all[0].date).toBe('2026-09-17');
     });
 
+    it('updates entry full fields (text, type, signifier, date, time)', async () => {
+      const entry = {
+        id: 'entry-edit-1',
+        text: 'Original task',
+        type: 'task',
+        status: 'open',
+        date: '2026-09-16',
+        signifier: null,
+        time: null,
+      };
+      await EntryRepository.insertEntry(entry);
+      await EntryRepository.updateEntry('entry-edit-1', {
+        text: 'Updated event text',
+        type: 'event',
+        signifier: 'priority',
+        date: '2026-09-20',
+        time: '14:30',
+      });
+
+      const all = await EntryRepository.getAllEntries();
+      const updated = all.find(e => e.id === 'entry-edit-1');
+      expect(updated.text).toBe('Updated event text');
+      expect(updated.type).toBe('event');
+      expect(updated.signifier).toBe('priority');
+      expect(updated.date).toBe('2026-09-20');
+      expect(updated.time).toBe('14:30');
+    });
+
     it('updates entry order_index', async () => {
       const entry = {
         id: 'entry-4',

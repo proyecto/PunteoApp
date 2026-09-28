@@ -122,7 +122,7 @@ function EntryCard({
               { color: theme.text },
               isCompleted && { color: theme.textCompleted, textDecorationLine: 'line-through' },
             ]}
-            numberOfLines={1}
+            numberOfLines={3}
           >
             {item.text}
           </Text>

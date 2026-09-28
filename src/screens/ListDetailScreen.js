@@ -40,6 +40,7 @@ import { getSignifierSymbol } from '../services/DailyLogService';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettings } from '../context/SettingsContext';
 import { useJournal } from '../context/JournalContext';
+import EditEntryModal from '../components/EditEntryModal';
 import SmartInput from '../components/SmartInput';
 import { createListEntry } from '../factories/EntryFactory';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
@@ -79,7 +80,7 @@ export default function ListDetailScreen({ route, navigation }) {
   // ── Acceso a datos y configuración (Observer Pattern) ────────────────────────
 
   const { theme, language, timezone } = useSettings();
-  const { entries, toggleStatus, toggleSignifier, addEntry, deleteEntry, reorderEntries } = useJournal();
+  const { entries, toggleStatus, toggleSignifier, addEntry, deleteEntry, updateEntry, reorderEntries } = useJournal();
   const insets = useSafeAreaInsets();
 
   // ── Estado local ──────────────────────────────────────────────────────────────
@@ -89,6 +90,14 @@ export default function ListDetailScreen({ route, navigation }) {
 
   /** Significador purista seleccionado para el nuevo elemento ('priority' | 'inspiration' | null) */
   const [selectedSignifier, setSelectedSignifier] = useState(null);
+
+  /** Elemento que el usuario está editando (pulsación larga) */
+  const [editingItem, setEditingItem] = useState(null);
+
+  const handleSaveEditedEntry = (id, updatedFields) => {
+    updateEntry(id, updatedFields);
+    setEditingItem(null);
+  };
 
   /** Entradas del Archivo de Notas (solo en modo archivo) */
   const [archiveEntries, setArchiveEntries] = useState([]);
@@ -451,6 +460,8 @@ export default function ListDetailScreen({ route, navigation }) {
                       <TouchableOpacity
                         style={{ flex: 1, paddingVertical: 4 }}
                         onPress={() => toggleStatus(item.id, null)}
+                        onLongPress={() => setEditingItem(item)}
+                        delayLongPress={350}
                         activeOpacity={0.7}
                         disabled={draggingIndex !== null}
                       >
@@ -461,7 +472,7 @@ export default function ListDetailScreen({ route, navigation }) {
                             { color: isCompleted ? theme.textCompleted : theme.text },
                             isCompleted && styles.itemTextCompleted,
                           ]}
-                          numberOfLines={1}
+                          numberOfLines={3}
                         >
                           {item.text}
                         </Text>
@@ -556,6 +567,15 @@ export default function ListDetailScreen({ route, navigation }) {
             </TouchableOpacity>
           </>
         }
+      />
+
+      {/* ── Modal: Edición completa del elemento (texto, tipo, significador, fecha, hora) ──── */}
+      <EditEntryModal
+        visible={!!editingItem}
+        entry={editingItem}
+        onSave={handleSaveEditedEntry}
+        onDelete={confirmDeleteItem}
+        onClose={() => setEditingItem(null)}
       />
     </View>
   );

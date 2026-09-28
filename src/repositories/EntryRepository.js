@@ -109,6 +109,20 @@ export const updateEntryDateTime = async (id, newDate, newTime) => {
 };
 
 /**
+ * Actualiza los campos editables de una entrada (texto, tipo, significador, fecha, hora).
+ * @param {string} id - ID de la entrada.
+ * @param {Object} fields - Objeto con { text, type, signifier, date, time }.
+ * @returns {Promise<void>}
+ */
+export const updateEntry = async (id, fields) => {
+  const { text, type, signifier, date, time } = fields;
+  await db.runAsync(
+    'UPDATE entries SET text = ?, type = ?, signifier = ?, date = ?, time = ? WHERE id = ?',
+    [text, type, signifier ?? null, date, time ?? null, id]
+  );
+};
+
+/**
  * Actualiza el order_index de una entrada.
  * @param {string} id - ID de la entrada a actualizar.
  * @param {number} newIndex - El nuevo índice de orden.
