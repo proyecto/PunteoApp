@@ -22,7 +22,6 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Alert,
-  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -40,17 +39,12 @@ export default function SmartInput({
   placeholder,
   topContent,
   leftContent,
-  showDebug = false,
 }) {
   const { theme, language } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [transcript, setTranscript] = useState('');
-  const [volumeLevel, setVolumeLevel] = useState(-2);
-  const [debugLogs, setDebugLogs] = useState([]);
-  const [showDebugOverlay, setShowDebugOverlay] = useState(false);
-  const [installedLocales, setInstalledLocales] = useState([]);
 
   const inputRef = useRef(null);
   const focusTimerRef = useRef(null);
@@ -62,12 +56,7 @@ export default function SmartInput({
   const permissionsGrantedRef = useRef(false);
   const pendingVoiceSubmitRef = useRef(false);
   const submittedVoiceTextRef = useRef('');
-
-  const addDebugLog = useCallback((msg) => {
-    if (!showDebug) return;
-    const time = new Date().toLocaleTimeString();
-    setDebugLogs((prev) => [`[${time}] ${msg}`, ...prev.slice(0, 15)]);
-  }, [showDebug]);
+  const installedLocalesRef = useRef([]);
 
   // Pre-solicitar permisos y consultar idiomas instalados en el teléfono
   useEffect(() => {
@@ -79,19 +68,17 @@ export default function SmartInput({
         permissionsGrantedRef.current = false;
       });
 
-    if (showDebug) {
-      try {
-        if (typeof ExpoSpeechRecognitionModule.getSupportedLocales === 'function') {
-          ExpoSpeechRecognitionModule.getSupportedLocales({})
-            .then((res) => {
-              const list = res.installedLocales?.length ? res.installedLocales : res.locales || [];
-              setInstalledLocales(list);
-            })
-            .catch(() => {});
-        }
-      } catch (e) {}
-    }
-  }, [showDebug]);
+    try {
+      if (typeof ExpoSpeechRecognitionModule.getSupportedLocales === 'function') {
+        ExpoSpeechRecognitionModule.getSupportedLocales({})
+          .then((res) => {
+            const list = res.installedLocales?.length ? res.installedLocales : res.locales || [];
+            installedLocalesRef.current = list;
+          })
+          .catch(() => {});
+      }
+    } catch (e) {}
+  }, []);
 
   const handleOpen = () => {
     setIsOpen(true);
@@ -122,53 +109,23 @@ export default function SmartInput({
   useSpeechRecognitionEvent('result', (event) => {
     const res = event.results[0];
     const text = res?.transcript;
-    const conf = res?.confidence != null && res.confidence >= 0 ? Math.round(res.confidence * 100) : '?';
     if (text) {
       setTranscript(text);
       transcriptRef.current = text;
-      addDebugLog(`📝 "${text}" (Conf: ${conf}%, Final: ${event.isFinal ? 'Sí' : 'No'})`);
 
       // Si el usuario ya soltó el botón de grabar y el resultado final llega con un pequeño retraso
       const trimmed = text.trim();
       if (pendingVoiceSubmitRef.current && trimmed && trimmed !== submittedVoiceTextRef.current) {
         submittedVoiceTextRef.current = trimmed;
         pendingVoiceSubmitRef.current = false;
-        addDebugLog(`🚀 Enviando resultado diferido: "${trimmed}"`);
         handleSubmit(trimmed, { isVoice: true });
       }
     }
   });
 
-  // Escuchar eventos de voz
-  useSpeechRecognitionEvent('audiostart', () => {
-    addDebugLog('🎙️ Grabación iniciada (Micrófono activo)');
-  });
-
-  useSpeechRecognitionEvent('audioend', () => {
-    addDebugLog('🛑 Grabación finalizada');
-  });
-
-  useSpeechRecognitionEvent('speechstart', () => {
-    addDebugLog('🗣️ Voz detectada');
-  });
-
-  useSpeechRecognitionEvent('speechend', () => {
-    addDebugLog('🤫 Silencio detectado');
-  });
-
-  useSpeechRecognitionEvent('nomatch', () => {
-    addDebugLog('❌ nomatch: Se captó sonido pero no se reconoció ninguna palabra');
-  });
-
-  useSpeechRecognitionEvent('volumechange', (event) => {
-    if (showDebug) {
-      setVolumeLevel(event.value);
-    }
-  });
-
+  // Escuchar errores de reconocimiento de voz
   useSpeechRecognitionEvent('error', (event) => {
-    addDebugLog(`⚠️ Error: ${event.error} - ${event.message || ''}`);
-
+    // Ignorar pausas de silencio iniciales no destructivas en Android
     if (event.error === 'no-speech' || event.error === 'speech-timeout') {
       return;
     }
@@ -224,7 +181,6 @@ export default function SmartInput({
         const currentText = transcriptRef.current?.trim();
         if (currentText) {
           submittedVoiceTextRef.current = currentText;
-          addDebugLog(`🚀 Enviando resultado inmediato: "${currentText}"`);
           handleSubmit(currentText, { isVoice: true });
         }
 
@@ -234,25 +190,23 @@ export default function SmartInput({
             const finalText = transcriptRef.current?.trim();
             if (finalText && finalText !== submittedVoiceTextRef.current) {
               submittedVoiceTextRef.current = finalText;
-              addDebugLog(`🚀 Enviando resultado diferido (400ms): "${finalText}"`);
               handleSubmit(finalText, { isVoice: true });
             }
             pendingVoiceSubmitRef.current = false;
           }
         }, 400);
       }
-
-      setVolumeLevel(-2);
     },
-    [handleSubmit, addDebugLog]
+    [handleSubmit]
   );
 
   const getBestLanguageCode = () => {
+    const list = installedLocalesRef.current;
     if (language === 'es') {
-      if (installedLocales.includes('es-ES')) return 'es-ES';
-      if (installedLocales.includes('es-US')) return 'es-US';
-      if (installedLocales.includes('es-MX')) return 'es-MX';
-      const anyEs = installedLocales.find((l) => l.startsWith('es'));
+      if (list.includes('es-ES')) return 'es-ES';
+      if (list.includes('es-US')) return 'es-US';
+      if (list.includes('es-MX')) return 'es-MX';
+      const anyEs = list.find((l) => l.startsWith('es'));
       if (anyEs) return anyEs;
       return 'es-ES';
     }
@@ -267,8 +221,6 @@ export default function SmartInput({
     setRecordingSeconds(0);
     setTranscript('');
     transcriptRef.current = '';
-    setVolumeLevel(-2);
-    addDebugLog('🚀 Iniciando proceso de grabación...');
 
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -307,7 +259,6 @@ export default function SmartInput({
       if (!isRecordingRef.current) return;
 
       const targetLang = getBestLanguageCode();
-      addDebugLog(`🌐 Idioma objetivo: ${targetLang}`);
 
       let servicePackage;
       try {
@@ -315,9 +266,6 @@ export default function SmartInput({
           const services = ExpoSpeechRecognitionModule.getSpeechRecognitionServices();
           if (Array.isArray(services) && services.includes('com.google.android.as')) {
             servicePackage = 'com.google.android.as';
-            addDebugLog('⚙️ Motor: Android Speech Services (com.google.android.as)');
-          } else {
-            addDebugLog(`⚙️ Motor por defecto (${services?.join(', ') || 'sistema'})`);
           }
         }
       } catch (e) {}
@@ -335,13 +283,9 @@ export default function SmartInput({
           EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
           EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
         },
-        volumeChangeEventOptions: showDebug ? {
-          enabled: true,
-          intervalMillis: 100,
-        } : undefined,
       });
     } catch (err) {
-      addDebugLog(`💥 Excepción en start(): ${err?.message || String(err)}`);
+      console.warn('Error starting voice recording:', err);
       stopRecording(false);
       Alert.alert(
         language === 'es' ? 'Error de voz' : 'Voice Error',
@@ -425,13 +369,6 @@ export default function SmartInput({
   const defaultPlaceholder = language === 'es' ? 'Escribe aquí...' : 'Type here...';
   const hasText = !!value?.trim();
 
-  const renderVolumeMeter = () => {
-    const normalized = Math.max(0, Math.min(10, Math.round(volumeLevel + 2)));
-    const filled = '█'.repeat(normalized);
-    const empty = '░'.repeat(10 - normalized);
-    return `[${filled}${empty}] ${volumeLevel.toFixed(1)} dB`;
-  };
-
   const getRecordingLabel = () => {
     const secStr = `${recordingSeconds}s / 10s`;
     if (transcript) {
@@ -460,44 +397,7 @@ export default function SmartInput({
           </View>
         )}
 
-        {/* Panel de Debug Flotante (solo si showDebug es true y está desplegado) */}
-        {showDebug && showDebugOverlay && (
-          <View style={[styles.debugCard, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
-            <View style={styles.debugHeader}>
-              <Text variant="caption" style={{ fontWeight: 'bold', color: theme.primary }}>
-                🐞 DIAGNÓSTICO DE VOZ EN TIEMPO REAL
-              </Text>
-              <TouchableOpacity onPress={() => setShowDebugOverlay(false)}>
-                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <Text variant="caption" style={{ color: theme.text, fontFamily: 'monospace', marginVertical: 2 }}>
-              🔊 Mic: {renderVolumeMeter()}
-            </Text>
-            <Text variant="caption" style={{ color: theme.textSecondary, fontSize: 10 }}>
-              🌐 Idioma: {getBestLanguageCode()} | Instalados: [{installedLocales.join(', ') || 'ninguno'}]
-            </Text>
-            <ScrollView style={{ maxHeight: 90, marginTop: 4 }}>
-              {debugLogs.map((log, idx) => (
-                <Text key={idx} variant="caption" style={{ fontSize: 10, color: theme.text, fontFamily: 'monospace' }}>
-                  {log}
-                </Text>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
         <View style={styles.inputRow}>
-          {/* Botón para alternar el Panel de Debug (solo si showDebug es true) */}
-          {showDebug && (
-            <TouchableOpacity
-              style={styles.debugToggleButton}
-              onPress={() => setShowDebugOverlay(!showDebugOverlay)}
-            >
-              <Ionicons name="bug-outline" size={18} color={showDebugOverlay ? theme.primary : theme.textSecondary} />
-            </TouchableOpacity>
-          )}
-
           {leftContent && (
             <View style={styles.leftContentContainer}>
               {leftContent}
@@ -587,43 +487,7 @@ export default function SmartInput({
                     </View>
                   )}
 
-                  {/* Panel de Debug Flotante dentro del Modal */}
-                  {showDebug && showDebugOverlay && (
-                    <View style={[styles.debugCard, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
-                      <View style={styles.debugHeader}>
-                        <Text variant="caption" style={{ fontWeight: 'bold', color: theme.primary }}>
-                          🐞 DIAGNÓSTICO DE VOZ EN TIEMPO REAL
-                        </Text>
-                        <TouchableOpacity onPress={() => setShowDebugOverlay(false)}>
-                          <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-                        </TouchableOpacity>
-                      </View>
-                      <Text variant="caption" style={{ color: theme.text, fontFamily: 'monospace', marginVertical: 2 }}>
-                        🔊 Mic: {renderVolumeMeter()}
-                      </Text>
-                      <Text variant="caption" style={{ color: theme.textSecondary, fontSize: 10 }}>
-                        🌐 Idioma: {getBestLanguageCode()} | Instalados: [{installedLocales.join(', ') || 'ninguno'}]
-                      </Text>
-                      <ScrollView style={{ maxHeight: 80, marginTop: 4 }}>
-                        {debugLogs.map((log, idx) => (
-                          <Text key={idx} variant="caption" style={{ fontSize: 10, color: theme.text, fontFamily: 'monospace' }}>
-                            {log}
-                          </Text>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-
                   <View style={styles.inputRow}>
-                    {showDebug && (
-                      <TouchableOpacity
-                        style={styles.debugToggleButton}
-                        onPress={() => setShowDebugOverlay(!showDebugOverlay)}
-                      >
-                        <Ionicons name="bug-outline" size={18} color={showDebugOverlay ? theme.primary : theme.textSecondary} />
-                      </TouchableOpacity>
-                    )}
-
                     {leftContent && (
                       <View style={styles.leftContentContainer}>
                         {leftContent}
@@ -725,22 +589,6 @@ const styles = StyleSheet.create({
   },
   leftContentContainer: {
     marginRight: 10,
-  },
-  debugToggleButton: {
-    padding: 6,
-    marginRight: 4,
-  },
-  debugCard: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 8,
-  },
-  debugHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
   },
   dummyTextInput: {
     flex: 1,
