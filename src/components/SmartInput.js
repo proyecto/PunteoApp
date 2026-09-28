@@ -2,12 +2,8 @@
  * @module SmartInput
  * @description Componente de entrada de texto estilo Bottom Sheet Modal para React Native / Expo.
  * 
- * Muestra una barra visible en la parte inferior de la pantalla. Al pulsarla, abre un Modal
- * nativo con fondo atenuado y el input flotando exactamente sobre el teclado virtual.
- * 
- * Si el campo de texto está vacío:
- * - Un toque rápido (< 200ms) abre el teclado para escribir normalmente.
- * - Mantener pulsado (> 200ms) activa la grabación de voz nativa y offline (máx 10s).
+ * Incluye un panel de diagnóstico de voz en tiempo real (Debug Overlay) para inspeccionar
+ * niveles de audio en dB, eventos del motor de voz y coincidencia de palabras.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -22,6 +18,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -45,6 +42,10 @@ export default function SmartInput({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [transcript, setTranscript] = useState('');
+  const [volumeLevel, setVolumeLevel] = useState(-2);
+  const [debugLogs, setDebugLogs] = useState([]);
+  const [showDebugOverlay, setShowDebugOverlay] = useState(false);
+  const [installedLocales, setInstalledLocales] = useState([]);
 
   const inputRef = useRef(null);
   const focusTimerRef = useRef(null);
@@ -55,7 +56,12 @@ export default function SmartInput({
   const isRecordingRef = useRef(false);
   const permissionsGrantedRef = useRef(false);
 
-  // Pre-solicitar permisos en segundo plano al montar el componente
+  const addDebugLog = useCallback((msg) => {
+    const time = new Date().toLocaleTimeString();
+    setDebugLogs((prev) => [`[${time}] ${msg}`, ...prev.slice(0, 15)]);
+  }, []);
+
+  // Pre-solicitar permisos y consultar idiomas instalados en el teléfono
   useEffect(() => {
     ExpoSpeechRecognitionModule.requestPermissionsAsync()
       .then((result) => {
@@ -64,22 +70,58 @@ export default function SmartInput({
       .catch(() => {
         permissionsGrantedRef.current = false;
       });
+
+    try {
+      if (typeof ExpoSpeechRecognitionModule.getSupportedLocales === 'function') {
+        ExpoSpeechRecognitionModule.getSupportedLocales({})
+          .then((res) => {
+            const list = res.installedLocales?.length ? res.installedLocales : res.locales || [];
+            setInstalledLocales(list);
+          })
+          .catch(() => {});
+      }
+    } catch (e) {}
   }, []);
 
-  // Escuchar resultados de reconocimiento de voz
+  // Escuchar eventos de voz
+  useSpeechRecognitionEvent('audiostart', () => {
+    addDebugLog('🎙️ Grabación iniciada (Micrófono activo)');
+  });
+
+  useSpeechRecognitionEvent('audioend', () => {
+    addDebugLog('🛑 Grabación finalizada');
+  });
+
+  useSpeechRecognitionEvent('speechstart', () => {
+    addDebugLog('🗣️ Voz detectada');
+  });
+
+  useSpeechRecognitionEvent('speechend', () => {
+    addDebugLog('🤫 Silencio detectado');
+  });
+
+  useSpeechRecognitionEvent('nomatch', () => {
+    addDebugLog('❌ nomatch: Se captó sonido pero no se reconoció ninguna palabra');
+  });
+
+  useSpeechRecognitionEvent('volumechange', (event) => {
+    setVolumeLevel(event.value);
+  });
+
   useSpeechRecognitionEvent('result', (event) => {
-    const text = event.results[0]?.transcript;
+    const res = event.results[0];
+    const text = res?.transcript;
+    const conf = res?.confidence != null && res.confidence >= 0 ? Math.round(res.confidence * 100) : '?';
     if (text) {
       setTranscript(text);
       transcriptRef.current = text;
+      addDebugLog(`📝 "${text}" (Conf: ${conf}%, Final: ${event.isFinal ? 'Sí' : 'No'})`);
     }
   });
 
-  // Escuchar errores de reconocimiento de voz
   useSpeechRecognitionEvent('error', (event) => {
-    console.warn('Speech recognition event error:', event.error, event.message);
+    addDebugLog(`⚠️ Error: ${event.error} - ${event.message || ''}`);
 
-    // Ignorar pausas de silencio iniciales no destructivas en Android
     if (event.error === 'no-speech' || event.error === 'speech-timeout') {
       return;
     }
@@ -148,15 +190,11 @@ export default function SmartInput({
 
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch (e) {
-        // Ignorar en entornos sin haptics
-      }
+      } catch (e) {}
 
       try {
         ExpoSpeechRecognitionModule.stop();
-      } catch (e) {
-        // Ignorar si ya se había detenido
-      }
+      } catch (e) {}
 
       if (shouldSubmit) {
         const finalText = transcriptRef.current?.trim();
@@ -168,9 +206,22 @@ export default function SmartInput({
       setTranscript('');
       transcriptRef.current = '';
       setRecordingSeconds(0);
+      setVolumeLevel(-2);
     },
     [handleSubmit]
   );
+
+  const getBestLanguageCode = () => {
+    if (language === 'es') {
+      if (installedLocales.includes('es-ES')) return 'es-ES';
+      if (installedLocales.includes('es-US')) return 'es-US';
+      if (installedLocales.includes('es-MX')) return 'es-MX';
+      const anyEs = installedLocales.find((l) => l.startsWith('es'));
+      if (anyEs) return anyEs;
+      return 'es-ES';
+    }
+    return 'en-US';
+  };
 
   const startRecording = async () => {
     setIsRecording(true);
@@ -178,12 +229,12 @@ export default function SmartInput({
     setRecordingSeconds(0);
     setTranscript('');
     transcriptRef.current = '';
+    setVolumeLevel(-2);
+    addDebugLog('🚀 Iniciando proceso de grabación...');
 
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (e) {
-      // Ignorar si no está soportado
-    }
+    } catch (e) {}
 
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
@@ -209,7 +260,7 @@ export default function SmartInput({
         Alert.alert(
           language === 'es' ? 'Permiso denegado' : 'Permission denied',
           language === 'es'
-            ? 'Se requiere permiso de micrófono para realizar búsquedas o dictado de voz.'
+            ? 'Se requiere permiso de micrófono para realizar dictado de voz.'
             : 'Microphone permission is required to perform voice dictation.'
         );
         return;
@@ -217,13 +268,42 @@ export default function SmartInput({
 
       if (!isRecordingRef.current) return;
 
+      const targetLang = getBestLanguageCode();
+      addDebugLog(`🌐 Idioma objetivo: ${targetLang}`);
+
+      let servicePackage;
+      try {
+        if (typeof ExpoSpeechRecognitionModule.getSpeechRecognitionServices === 'function') {
+          const services = ExpoSpeechRecognitionModule.getSpeechRecognitionServices();
+          if (Array.isArray(services) && services.includes('com.google.android.as')) {
+            servicePackage = 'com.google.android.as';
+            addDebugLog('⚙️ Motor: Android Speech Services (com.google.android.as)');
+          } else {
+            addDebugLog(`⚙️ Motor por defecto (${services?.join(', ') || 'sistema'})`);
+          }
+        }
+      } catch (e) {}
+
       ExpoSpeechRecognitionModule.start({
-        lang: language === 'es' ? 'es-ES' : 'en-US',
+        lang: targetLang,
         interimResults: true,
-        maxAlternatives: 1,
+        maxAlternatives: 2,
+        addsPunctuation: true,
+        iosTaskHint: 'dictation',
+        androidIntent: 'android.speech.action.RECOGNIZE_SPEECH',
+        androidRecognitionServicePackage: servicePackage,
+        androidIntentOptions: {
+          EXTRA_LANGUAGE_MODEL: 'free_form',
+          EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
+          EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
+        },
+        volumeChangeEventOptions: {
+          enabled: true,
+          intervalMillis: 100,
+        },
       });
     } catch (err) {
-      console.warn('Error starting voice recording:', err);
+      addDebugLog(`💥 Excepción en start(): ${err?.message || String(err)}`);
       stopRecording(false);
       Alert.alert(
         language === 'es' ? 'Error de voz' : 'Voice Error',
@@ -241,7 +321,6 @@ export default function SmartInput({
       clearTimeout(startDelayTimerRef.current);
     }
 
-    // Umbral de 200ms para diferenciar toque rápido de pulsación larga
     startDelayTimerRef.current = setTimeout(() => {
       startRecording();
     }, 200);
@@ -256,10 +335,8 @@ export default function SmartInput({
     }
 
     if (isRecordingRef.current) {
-      // Si estuvo grabando (>200ms), detener y enviar
       stopRecording(true);
     } else if (pressDuration < 200 && !value?.trim()) {
-      // Si fue un toque corto (<200ms), abrir modal para escribir
       handleOpen();
     }
   };
@@ -281,7 +358,6 @@ export default function SmartInput({
     };
   }, []);
 
-  // Cierra automáticamente el modal cuando se oculta el teclado
   useEffect(() => {
     if (!isOpen) return;
 
@@ -311,6 +387,13 @@ export default function SmartInput({
   const defaultPlaceholder = language === 'es' ? 'Escribe aquí...' : 'Type here...';
   const hasText = !!value?.trim();
 
+  const renderVolumeMeter = () => {
+    const normalized = Math.max(0, Math.min(10, Math.round(volumeLevel + 2)));
+    const filled = '█'.repeat(normalized);
+    const empty = '░'.repeat(10 - normalized);
+    return `[${filled}${empty}] ${volumeLevel.toFixed(1)} dB`;
+  };
+
   const getRecordingLabel = () => {
     const secStr = `${recordingSeconds}s / 10s`;
     if (transcript) {
@@ -339,7 +422,42 @@ export default function SmartInput({
           </View>
         )}
 
+        {/* Panel de Debug Flotante (si está activo) */}
+        {showDebugOverlay && (
+          <View style={[styles.debugCard, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
+            <View style={styles.debugHeader}>
+              <Text variant="caption" style={{ fontWeight: 'bold', color: theme.primary }}>
+                🐞 DIAGNÓSTICO DE VOZ EN TIEMPO REAL
+              </Text>
+              <TouchableOpacity onPress={() => setShowDebugOverlay(false)}>
+                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text variant="caption" style={{ color: theme.text, fontFamily: 'monospace', marginVertical: 2 }}>
+              🔊 Mic: {renderVolumeMeter()}
+            </Text>
+            <Text variant="caption" style={{ color: theme.textSecondary, fontSize: 10 }}>
+              🌐 Idioma: {getBestLanguageCode()} | Instalados: [{installedLocales.join(', ') || 'ninguno'}]
+            </Text>
+            <ScrollView style={{ maxHeight: 90, marginTop: 4 }}>
+              {debugLogs.map((log, idx) => (
+                <Text key={idx} variant="caption" style={{ fontSize: 10, color: theme.text, fontFamily: 'monospace' }}>
+                  {log}
+                </Text>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         <View style={styles.inputRow}>
+          {/* Botón para alternar el Panel de Debug */}
+          <TouchableOpacity
+            style={styles.debugToggleButton}
+            onPress={() => setShowDebugOverlay(!showDebugOverlay)}
+          >
+            <Ionicons name="bug-outline" size={18} color={showDebugOverlay ? theme.primary : theme.textSecondary} />
+          </TouchableOpacity>
+
           {leftContent && (
             <View style={styles.leftContentContainer}>
               {leftContent}
@@ -429,7 +547,41 @@ export default function SmartInput({
                     </View>
                   )}
 
+                  {/* Panel de Debug Flotante dentro del Modal */}
+                  {showDebugOverlay && (
+                    <View style={[styles.debugCard, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
+                      <View style={styles.debugHeader}>
+                        <Text variant="caption" style={{ fontWeight: 'bold', color: theme.primary }}>
+                          🐞 DIAGNÓSTICO DE VOZ EN TIEMPO REAL
+                        </Text>
+                        <TouchableOpacity onPress={() => setShowDebugOverlay(false)}>
+                          <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                        </TouchableOpacity>
+                      </View>
+                      <Text variant="caption" style={{ color: theme.text, fontFamily: 'monospace', marginVertical: 2 }}>
+                        🔊 Mic: {renderVolumeMeter()}
+                      </Text>
+                      <Text variant="caption" style={{ color: theme.textSecondary, fontSize: 10 }}>
+                        🌐 Idioma: {getBestLanguageCode()} | Instalados: [{installedLocales.join(', ') || 'ninguno'}]
+                      </Text>
+                      <ScrollView style={{ maxHeight: 80, marginTop: 4 }}>
+                        {debugLogs.map((log, idx) => (
+                          <Text key={idx} variant="caption" style={{ fontSize: 10, color: theme.text, fontFamily: 'monospace' }}>
+                            {log}
+                          </Text>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+
                   <View style={styles.inputRow}>
+                    <TouchableOpacity
+                      style={styles.debugToggleButton}
+                      onPress={() => setShowDebugOverlay(!showDebugOverlay)}
+                    >
+                      <Ionicons name="bug-outline" size={18} color={showDebugOverlay ? theme.primary : theme.textSecondary} />
+                    </TouchableOpacity>
+
                     {leftContent && (
                       <View style={styles.leftContentContainer}>
                         {leftContent}
@@ -531,6 +683,22 @@ const styles = StyleSheet.create({
   },
   leftContentContainer: {
     marginRight: 10,
+  },
+  debugToggleButton: {
+    padding: 6,
+    marginRight: 4,
+  },
+  debugCard: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+  },
+  debugHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
   dummyTextInput: {
     flex: 1,
