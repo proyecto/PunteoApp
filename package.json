@@ -1,6 +1,6 @@
 {
   "name": "punteo",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "main": "index.js",
   "dependencies": {
     "@expo-google-fonts/caveat": "^0.4.2",
