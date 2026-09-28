@@ -2,8 +2,9 @@
  * @module SmartInput
  * @description Componente de entrada de texto estilo Bottom Sheet Modal para React Native / Expo.
  * 
- * Incluye un panel de diagnóstico de voz en tiempo real (Debug Overlay) para inspeccionar
- * niveles de audio en dB, eventos del motor de voz y coincidencia de palabras.
+ * Incluye un panel de diagnóstico de voz en tiempo real (Debug Overlay) y gestión diferida
+ * de eventos de voz para garantizar que los resultados finales de Android/iOS se envíen
+ * siempre a la nota/tarea sin perder la última palabra dictada.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -55,6 +56,8 @@ export default function SmartInput({
   const transcriptRef = useRef('');
   const isRecordingRef = useRef(false);
   const permissionsGrantedRef = useRef(false);
+  const pendingVoiceSubmitRef = useRef(false);
+  const submittedVoiceTextRef = useRef('');
 
   const addDebugLog = useCallback((msg) => {
     const time = new Date().toLocaleTimeString();
@@ -83,6 +86,52 @@ export default function SmartInput({
     } catch (e) {}
   }, []);
 
+  const handleOpen = () => {
+    setIsOpen(true);
+  };
+
+  const handleClose = useCallback(() => {
+    if (focusTimerRef.current) {
+      clearTimeout(focusTimerRef.current);
+    }
+    Keyboard.dismiss();
+    setIsOpen(false);
+  }, []);
+
+  const handleSubmit = useCallback(
+    (textOverride = null, options = {}) => {
+      const textToSend = typeof textOverride === 'string' ? textOverride : value;
+      if (!textToSend?.trim()) return;
+
+      if (typeof onSubmit === 'function') {
+        onSubmit(textToSend, options);
+      }
+      handleClose();
+    },
+    [value, onSubmit, handleClose]
+  );
+
+  // Escuchar resultados de reconocimiento de voz
+  useSpeechRecognitionEvent('result', (event) => {
+    const res = event.results[0];
+    const text = res?.transcript;
+    const conf = res?.confidence != null && res.confidence >= 0 ? Math.round(res.confidence * 100) : '?';
+    if (text) {
+      setTranscript(text);
+      transcriptRef.current = text;
+      addDebugLog(`📝 "${text}" (Conf: ${conf}%, Final: ${event.isFinal ? 'Sí' : 'No'})`);
+
+      // Si el usuario ya soltó el botón de grabar y el resultado final llega con un pequeño retraso
+      const trimmed = text.trim();
+      if (pendingVoiceSubmitRef.current && trimmed && trimmed !== submittedVoiceTextRef.current) {
+        submittedVoiceTextRef.current = trimmed;
+        pendingVoiceSubmitRef.current = false;
+        addDebugLog(`🚀 Enviando resultado diferido: "${trimmed}"`);
+        handleSubmit(trimmed, { isVoice: true });
+      }
+    }
+  });
+
   // Escuchar eventos de voz
   useSpeechRecognitionEvent('audiostart', () => {
     addDebugLog('🎙️ Grabación iniciada (Micrófono activo)');
@@ -108,17 +157,6 @@ export default function SmartInput({
     setVolumeLevel(event.value);
   });
 
-  useSpeechRecognitionEvent('result', (event) => {
-    const res = event.results[0];
-    const text = res?.transcript;
-    const conf = res?.confidence != null && res.confidence >= 0 ? Math.round(res.confidence * 100) : '?';
-    if (text) {
-      setTranscript(text);
-      transcriptRef.current = text;
-      addDebugLog(`📝 "${text}" (Conf: ${conf}%, Final: ${event.isFinal ? 'Sí' : 'No'})`);
-    }
-  });
-
   useSpeechRecognitionEvent('error', (event) => {
     addDebugLog(`⚠️ Error: ${event.error} - ${event.message || ''}`);
 
@@ -140,36 +178,11 @@ export default function SmartInput({
     }
   });
 
-  const handleOpen = () => {
-    setIsOpen(true);
-  };
-
-  const handleClose = useCallback(() => {
-    if (focusTimerRef.current) {
-      clearTimeout(focusTimerRef.current);
-    }
-    Keyboard.dismiss();
-    setIsOpen(false);
-  }, []);
-
   const handleModalShow = () => {
     focusTimerRef.current = setTimeout(() => {
       inputRef.current?.focus();
     }, 60);
   };
-
-  const handleSubmit = useCallback(
-    (textOverride = null, options = {}) => {
-      const textToSend = typeof textOverride === 'string' ? textOverride : value;
-      if (!textToSend?.trim()) return;
-
-      if (typeof onSubmit === 'function') {
-        onSubmit(textToSend, options);
-      }
-      handleClose();
-    },
-    [value, onSubmit, handleClose]
-  );
 
   const stopRecording = useCallback(
     (shouldSubmit = true) => {
@@ -187,6 +200,8 @@ export default function SmartInput({
 
       setIsRecording(false);
       isRecordingRef.current = false;
+      pendingVoiceSubmitRef.current = shouldSubmit;
+      submittedVoiceTextRef.current = '';
 
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -197,18 +212,30 @@ export default function SmartInput({
       } catch (e) {}
 
       if (shouldSubmit) {
-        const finalText = transcriptRef.current?.trim();
-        if (finalText) {
-          handleSubmit(finalText, { isVoice: true });
+        const currentText = transcriptRef.current?.trim();
+        if (currentText) {
+          submittedVoiceTextRef.current = currentText;
+          addDebugLog(`🚀 Enviando resultado inmediato: "${currentText}"`);
+          handleSubmit(currentText, { isVoice: true });
         }
+
+        // Dar un margen de 400ms para capturar resultados finales que Android emita tras soltar el botón
+        setTimeout(() => {
+          if (pendingVoiceSubmitRef.current) {
+            const finalText = transcriptRef.current?.trim();
+            if (finalText && finalText !== submittedVoiceTextRef.current) {
+              submittedVoiceTextRef.current = finalText;
+              addDebugLog(`🚀 Enviando resultado diferido (400ms): "${finalText}"`);
+              handleSubmit(finalText, { isVoice: true });
+            }
+            pendingVoiceSubmitRef.current = false;
+          }
+        }, 400);
       }
 
-      setTranscript('');
-      transcriptRef.current = '';
-      setRecordingSeconds(0);
       setVolumeLevel(-2);
     },
-    [handleSubmit]
+    [handleSubmit, addDebugLog]
   );
 
   const getBestLanguageCode = () => {
@@ -226,6 +253,8 @@ export default function SmartInput({
   const startRecording = async () => {
     setIsRecording(true);
     isRecordingRef.current = true;
+    pendingVoiceSubmitRef.current = false;
+    submittedVoiceTextRef.current = '';
     setRecordingSeconds(0);
     setTranscript('');
     transcriptRef.current = '';
