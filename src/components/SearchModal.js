@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -30,13 +30,25 @@ export default function SearchModal({ visible, onClose, onSelectResult }) {
   const insets = useSafeAreaInsets();
 
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const results = searchEntries(entries, lists, query, language);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const results = useMemo(
+    () => searchEntries(entries, lists, debouncedQuery, language),
+    [entries, lists, debouncedQuery, language]
+  );
 
   const handleClose = () => {
     setQuery('');
+    setDebouncedQuery('');
     onClose();
   };
 
