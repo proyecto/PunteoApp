@@ -2,9 +2,12 @@
  * @module SmartInput
  * @description Componente de entrada de texto estilo Bottom Sheet Modal para React Native / Expo.
  * 
- * Incluye un panel de diagnóstico de voz en tiempo real (Debug Overlay) y gestión diferida
- * de eventos de voz para garantizar que los resultados finales de Android/iOS se envíen
- * siempre a la nota/tarea sin perder la última palabra dictada.
+ * Muestra una barra visible en la parte inferior de la pantalla. Al pulsarla, abre un Modal
+ * nativo con fondo atenuado y el input flotando exactamente sobre el teclado virtual.
+ * 
+ * Si el campo de texto está vacío:
+ * - Un toque rápido (< 200ms) abre el teclado para escribir normalmente.
+ * - Mantener pulsado (> 200ms) activa la grabación de voz nativa y offline (máx 10s).
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -37,6 +40,7 @@ export default function SmartInput({
   placeholder,
   topContent,
   leftContent,
+  showDebug = false,
 }) {
   const { theme, language } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
@@ -60,9 +64,10 @@ export default function SmartInput({
   const submittedVoiceTextRef = useRef('');
 
   const addDebugLog = useCallback((msg) => {
+    if (!showDebug) return;
     const time = new Date().toLocaleTimeString();
     setDebugLogs((prev) => [`[${time}] ${msg}`, ...prev.slice(0, 15)]);
-  }, []);
+  }, [showDebug]);
 
   // Pre-solicitar permisos y consultar idiomas instalados en el teléfono
   useEffect(() => {
@@ -74,17 +79,19 @@ export default function SmartInput({
         permissionsGrantedRef.current = false;
       });
 
-    try {
-      if (typeof ExpoSpeechRecognitionModule.getSupportedLocales === 'function') {
-        ExpoSpeechRecognitionModule.getSupportedLocales({})
-          .then((res) => {
-            const list = res.installedLocales?.length ? res.installedLocales : res.locales || [];
-            setInstalledLocales(list);
-          })
-          .catch(() => {});
-      }
-    } catch (e) {}
-  }, []);
+    if (showDebug) {
+      try {
+        if (typeof ExpoSpeechRecognitionModule.getSupportedLocales === 'function') {
+          ExpoSpeechRecognitionModule.getSupportedLocales({})
+            .then((res) => {
+              const list = res.installedLocales?.length ? res.installedLocales : res.locales || [];
+              setInstalledLocales(list);
+            })
+            .catch(() => {});
+        }
+      } catch (e) {}
+    }
+  }, [showDebug]);
 
   const handleOpen = () => {
     setIsOpen(true);
@@ -154,7 +161,9 @@ export default function SmartInput({
   });
 
   useSpeechRecognitionEvent('volumechange', (event) => {
-    setVolumeLevel(event.value);
+    if (showDebug) {
+      setVolumeLevel(event.value);
+    }
   });
 
   useSpeechRecognitionEvent('error', (event) => {
@@ -326,10 +335,10 @@ export default function SmartInput({
           EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
           EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
         },
-        volumeChangeEventOptions: {
+        volumeChangeEventOptions: showDebug ? {
           enabled: true,
           intervalMillis: 100,
-        },
+        } : undefined,
       });
     } catch (err) {
       addDebugLog(`💥 Excepción en start(): ${err?.message || String(err)}`);
@@ -451,8 +460,8 @@ export default function SmartInput({
           </View>
         )}
 
-        {/* Panel de Debug Flotante (si está activo) */}
-        {showDebugOverlay && (
+        {/* Panel de Debug Flotante (solo si showDebug es true y está desplegado) */}
+        {showDebug && showDebugOverlay && (
           <View style={[styles.debugCard, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
             <View style={styles.debugHeader}>
               <Text variant="caption" style={{ fontWeight: 'bold', color: theme.primary }}>
@@ -479,13 +488,15 @@ export default function SmartInput({
         )}
 
         <View style={styles.inputRow}>
-          {/* Botón para alternar el Panel de Debug */}
-          <TouchableOpacity
-            style={styles.debugToggleButton}
-            onPress={() => setShowDebugOverlay(!showDebugOverlay)}
-          >
-            <Ionicons name="bug-outline" size={18} color={showDebugOverlay ? theme.primary : theme.textSecondary} />
-          </TouchableOpacity>
+          {/* Botón para alternar el Panel de Debug (solo si showDebug es true) */}
+          {showDebug && (
+            <TouchableOpacity
+              style={styles.debugToggleButton}
+              onPress={() => setShowDebugOverlay(!showDebugOverlay)}
+            >
+              <Ionicons name="bug-outline" size={18} color={showDebugOverlay ? theme.primary : theme.textSecondary} />
+            </TouchableOpacity>
+          )}
 
           {leftContent && (
             <View style={styles.leftContentContainer}>
@@ -577,7 +588,7 @@ export default function SmartInput({
                   )}
 
                   {/* Panel de Debug Flotante dentro del Modal */}
-                  {showDebugOverlay && (
+                  {showDebug && showDebugOverlay && (
                     <View style={[styles.debugCard, { backgroundColor: theme.inputBackground, borderColor: theme.border }]}>
                       <View style={styles.debugHeader}>
                         <Text variant="caption" style={{ fontWeight: 'bold', color: theme.primary }}>
@@ -604,12 +615,14 @@ export default function SmartInput({
                   )}
 
                   <View style={styles.inputRow}>
-                    <TouchableOpacity
-                      style={styles.debugToggleButton}
-                      onPress={() => setShowDebugOverlay(!showDebugOverlay)}
-                    >
-                      <Ionicons name="bug-outline" size={18} color={showDebugOverlay ? theme.primary : theme.textSecondary} />
-                    </TouchableOpacity>
+                    {showDebug && (
+                      <TouchableOpacity
+                        style={styles.debugToggleButton}
+                        onPress={() => setShowDebugOverlay(!showDebugOverlay)}
+                      >
+                        <Ionicons name="bug-outline" size={18} color={showDebugOverlay ? theme.primary : theme.textSecondary} />
+                      </TouchableOpacity>
+                    )}
 
                     {leftContent && (
                       <View style={styles.leftContentContainer}>
