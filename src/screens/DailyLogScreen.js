@@ -244,17 +244,21 @@ export default function DailyLogScreen({ navigation }) {
     );
   };
 
-  const handleAddEntry = () => {
-    if (!inputText.trim()) return;
+  const handleAddEntry = (textOverride = null, options = {}) => {
+    const textToUse = typeof textOverride === 'string' ? textOverride : inputText;
+    if (!textToUse?.trim()) return;
+
+    const isVoice = !!options?.isVoice;
+    const entryType = options?.forcedType || (isVoice ? 'task' : selectedType);
 
     const newEntry = createDailyEntry(
-      inputText,
-      selectedType,
+      textToUse,
+      entryType,
       selectedDate,
       timezone,
       orderedEntries.length,
-      selectedSignifier,
-      selectedTime
+      isVoice ? null : selectedSignifier,
+      isVoice ? null : selectedTime
     );
     addEntry(newEntry);
 

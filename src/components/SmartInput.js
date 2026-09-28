@@ -1,9 +1,13 @@
 /**
  * @module SmartInput
- * @description Componente de entrada de texto estilo Bottom Sheet Modal diseñado exclusivamente para Android.
+ * @description Componente de entrada de texto estilo Bottom Sheet Modal para React Native / Expo.
  * 
  * Muestra una barra visible en la parte inferior de la pantalla. Al pulsarla, abre un Modal
  * nativo con fondo atenuado y el input flotando exactamente sobre el teclado virtual.
+ * 
+ * Si el campo de texto está vacío:
+ * - Un toque rápido (< 200ms) abre el teclado para escribir normalmente.
+ * - Mantener pulsado (> 200ms) activa la grabación de voz nativa y offline (máx 10s).
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -11,13 +15,20 @@ import {
   View,
   TextInput,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   Modal,
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
 import { useSettings } from '../context/SettingsContext';
 import { AppText as Text } from './Typography';
 
@@ -31,9 +42,61 @@ export default function SmartInput({
 }) {
   const { theme, language } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
-  const inputRef = useRef(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [transcript, setTranscript] = useState('');
 
+  const inputRef = useRef(null);
   const focusTimerRef = useRef(null);
+  const recordingTimerRef = useRef(null);
+  const startDelayTimerRef = useRef(null);
+  const pressStartTimeRef = useRef(0);
+  const transcriptRef = useRef('');
+  const isRecordingRef = useRef(false);
+  const permissionsGrantedRef = useRef(false);
+
+  // Pre-solicitar permisos en segundo plano al montar el componente
+  useEffect(() => {
+    ExpoSpeechRecognitionModule.requestPermissionsAsync()
+      .then((result) => {
+        permissionsGrantedRef.current = !!result?.granted;
+      })
+      .catch(() => {
+        permissionsGrantedRef.current = false;
+      });
+  }, []);
+
+  // Escuchar resultados de reconocimiento de voz
+  useSpeechRecognitionEvent('result', (event) => {
+    const text = event.results[0]?.transcript;
+    if (text) {
+      setTranscript(text);
+      transcriptRef.current = text;
+    }
+  });
+
+  // Escuchar errores de reconocimiento de voz
+  useSpeechRecognitionEvent('error', (event) => {
+    console.warn('Speech recognition event error:', event.error, event.message);
+
+    // Ignorar pausas de silencio iniciales no destructivas en Android
+    if (event.error === 'no-speech' || event.error === 'speech-timeout') {
+      return;
+    }
+
+    if (isRecordingRef.current) {
+      const isFatal = event.error === 'not-allowed' || event.error === 'service-not-allowed';
+      stopRecording(false);
+      if (isFatal) {
+        Alert.alert(
+          language === 'es' ? 'Permiso de micrófono' : 'Microphone Permission',
+          language === 'es'
+            ? `Reconocimiento de voz no disponible (${event.error}: ${event.message || ''})`
+            : `Voice recognition unavailable (${event.error}: ${event.message || ''})`
+        );
+      }
+    }
+  });
 
   const handleOpen = () => {
     setIsOpen(true);
@@ -48,19 +111,177 @@ export default function SmartInput({
   }, []);
 
   const handleModalShow = () => {
-    // Delay de 60ms para garantizar que el foco nativo se aplique tras el render del Dialog
     focusTimerRef.current = setTimeout(() => {
       inputRef.current?.focus();
     }, 60);
   };
 
-  const handleSubmit = () => {
-    if (!value?.trim()) return;
-    onSubmit();
-    handleClose();
+  const handleSubmit = useCallback(
+    (textOverride = null, options = {}) => {
+      const textToSend = typeof textOverride === 'string' ? textOverride : value;
+      if (!textToSend?.trim()) return;
+
+      if (typeof onSubmit === 'function') {
+        onSubmit(textToSend, options);
+      }
+      handleClose();
+    },
+    [value, onSubmit, handleClose]
+  );
+
+  const stopRecording = useCallback(
+    (shouldSubmit = true) => {
+      if (startDelayTimerRef.current) {
+        clearTimeout(startDelayTimerRef.current);
+        startDelayTimerRef.current = null;
+      }
+
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+
+      if (!isRecordingRef.current) return;
+
+      setIsRecording(false);
+      isRecordingRef.current = false;
+
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (e) {
+        // Ignorar en entornos sin haptics
+      }
+
+      try {
+        ExpoSpeechRecognitionModule.stop();
+      } catch (e) {
+        // Ignorar si ya se había detenido
+      }
+
+      if (shouldSubmit) {
+        const finalText = transcriptRef.current?.trim();
+        if (finalText) {
+          handleSubmit(finalText, { isVoice: true });
+        }
+      }
+
+      setTranscript('');
+      transcriptRef.current = '';
+      setRecordingSeconds(0);
+    },
+    [handleSubmit]
+  );
+
+  const startRecording = async () => {
+    setIsRecording(true);
+    isRecordingRef.current = true;
+    setRecordingSeconds(0);
+    setTranscript('');
+    transcriptRef.current = '';
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (e) {
+      // Ignorar si no está soportado
+    }
+
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+    }
+
+    let elapsed = 0;
+    recordingTimerRef.current = setInterval(() => {
+      elapsed += 1;
+      setRecordingSeconds(elapsed);
+      if (elapsed >= 10) {
+        stopRecording(true);
+      }
+    }, 1000);
+
+    try {
+      if (!permissionsGrantedRef.current) {
+        const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+        permissionsGrantedRef.current = !!result?.granted;
+      }
+
+      if (!permissionsGrantedRef.current) {
+        stopRecording(false);
+        Alert.alert(
+          language === 'es' ? 'Permiso denegado' : 'Permission denied',
+          language === 'es'
+            ? 'Se requiere permiso de micrófono para realizar búsquedas o dictado de voz.'
+            : 'Microphone permission is required to perform voice dictation.'
+        );
+        return;
+      }
+
+      if (!isRecordingRef.current) return;
+
+      ExpoSpeechRecognitionModule.start({
+        lang: language === 'es' ? 'es-ES' : 'en-US',
+        interimResults: true,
+        maxAlternatives: 1,
+      });
+    } catch (err) {
+      console.warn('Error starting voice recording:', err);
+      stopRecording(false);
+      Alert.alert(
+        language === 'es' ? 'Error de voz' : 'Voice Error',
+        err?.message || String(err)
+      );
+    }
   };
 
-  // Cierra automáticamente el modal cuando se oculta el teclado (p.ej. al pulsar el botón atrás de Android)
+  const handlePressIn = () => {
+    if (value?.trim()) return;
+
+    pressStartTimeRef.current = Date.now();
+
+    if (startDelayTimerRef.current) {
+      clearTimeout(startDelayTimerRef.current);
+    }
+
+    // Umbral de 200ms para diferenciar toque rápido de pulsación larga
+    startDelayTimerRef.current = setTimeout(() => {
+      startRecording();
+    }, 200);
+  };
+
+  const handlePressOut = () => {
+    const pressDuration = Date.now() - pressStartTimeRef.current;
+
+    if (startDelayTimerRef.current) {
+      clearTimeout(startDelayTimerRef.current);
+      startDelayTimerRef.current = null;
+    }
+
+    if (isRecordingRef.current) {
+      // Si estuvo grabando (>200ms), detener y enviar
+      stopRecording(true);
+    } else if (pressDuration < 200 && !value?.trim()) {
+      // Si fue un toque corto (<200ms), abrir modal para escribir
+      handleOpen();
+    }
+  };
+
+  const handleButtonPress = () => {
+    if (value?.trim()) {
+      handleSubmit();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+      if (startDelayTimerRef.current) {
+        clearTimeout(startDelayTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Cierra automáticamente el modal cuando se oculta el teclado
   useEffect(() => {
     if (!isOpen) return;
 
@@ -75,7 +296,7 @@ export default function SmartInput({
     }, 400);
 
     const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
-      if (keyboardHasShown) {
+      if (keyboardHasShown && !isRecordingRef.current) {
         handleClose();
       }
     });
@@ -88,6 +309,15 @@ export default function SmartInput({
   }, [isOpen, handleClose]);
 
   const defaultPlaceholder = language === 'es' ? 'Escribe aquí...' : 'Type here...';
+  const hasText = !!value?.trim();
+
+  const getRecordingLabel = () => {
+    const secStr = `${recordingSeconds}s / 10s`;
+    if (transcript) {
+      return `🔴 ${transcript} (${secStr})`;
+    }
+    return language === 'es' ? `🔴 Grabando... (${secStr})` : `🔴 Recording... (${secStr})`;
+  };
 
   return (
     <>
@@ -120,29 +350,50 @@ export default function SmartInput({
             style={[
               styles.dummyTextInput,
               {
-                backgroundColor: theme.inputBackground,
+                backgroundColor: isRecording ? '#FFEBEE' : theme.inputBackground,
               },
             ]}
           >
             <Text
               style={{
-                color: value ? theme.text : theme.textSecondary,
+                color: isRecording ? '#D32F2F' : value ? theme.text : theme.textSecondary,
                 fontSize: 16,
+                fontWeight: isRecording ? '600' : '400',
               }}
               numberOfLines={1}
             >
-              {value || placeholder || defaultPlaceholder}
+              {isRecording
+                ? getRecordingLabel()
+                : value || placeholder || defaultPlaceholder}
             </Text>
           </View>
 
-          <View
+          <Pressable
             style={[
               styles.sendButton,
-              { backgroundColor: theme.buttonBackground },
+              {
+                backgroundColor: isRecording
+                  ? '#E53935'
+                  : hasText
+                  ? theme.text
+                  : theme.buttonBackground,
+              },
             ]}
+            onPress={hasText ? handleButtonPress : undefined}
+            onPressIn={!hasText ? handlePressIn : undefined}
+            onPressOut={!hasText ? handlePressOut : undefined}
+            accessibilityLabel={
+              hasText
+                ? language === 'es' ? 'Enviar' : 'Send'
+                : language === 'es' ? 'Mantener para grabar por voz' : 'Hold to record voice'
+            }
           >
-            <Ionicons name="arrow-up" size={20} color={theme.cardBackground} />
-          </View>
+            <Ionicons
+              name={hasText ? 'arrow-up' : 'mic'}
+              size={20}
+              color={theme.cardBackground}
+            />
+          </Pressable>
         </View>
       </TouchableOpacity>
 
@@ -156,7 +407,7 @@ export default function SmartInput({
         onShow={handleModalShow}
         statusBarTranslucent={true}
       >
-        <TouchableWithoutFeedback onPress={handleClose}>
+        <TouchableWithoutFeedback onPress={isRecording ? undefined : handleClose}>
           <View style={styles.modalBackdrop}>
             <KeyboardAvoidingView
               behavior="padding"
@@ -190,38 +441,50 @@ export default function SmartInput({
                       style={[
                         styles.textInput,
                         {
-                          backgroundColor: theme.inputBackground,
-                          color: theme.text,
+                          backgroundColor: isRecording ? '#FFEBEE' : theme.inputBackground,
+                          color: isRecording ? '#D32F2F' : theme.text,
                         },
                       ]}
-                      placeholder={placeholder || defaultPlaceholder}
-                      placeholderTextColor={theme.textSecondary}
-                      value={value}
+                      placeholder={
+                        isRecording
+                          ? getRecordingLabel()
+                          : placeholder || defaultPlaceholder
+                      }
+                      placeholderTextColor={isRecording ? '#D32F2F' : theme.textSecondary}
+                      value={isRecording ? transcript : value}
                       onChangeText={onChangeText}
-                      onSubmitEditing={handleSubmit}
+                      onSubmitEditing={() => handleSubmit()}
                       returnKeyType="send"
+                      editable={!isRecording}
                     />
 
-                    <TouchableOpacity
+                    <Pressable
                       style={[
                         styles.sendButton,
                         {
-                          backgroundColor: value?.trim()
+                          backgroundColor: isRecording
+                            ? '#E53935'
+                            : hasText
                             ? theme.text
                             : theme.buttonBackground,
                         },
-                        value?.trim() ? { elevation: 3 } : null,
+                        hasText || isRecording ? { elevation: 3 } : null,
                       ]}
-                      onPress={handleSubmit}
-                      disabled={!value?.trim()}
-                      activeOpacity={0.7}
+                      onPress={hasText ? handleButtonPress : undefined}
+                      onPressIn={!hasText ? handlePressIn : undefined}
+                      onPressOut={!hasText ? handlePressOut : undefined}
+                      accessibilityLabel={
+                        hasText
+                          ? language === 'es' ? 'Enviar' : 'Send'
+                          : language === 'es' ? 'Mantener para grabar por voz' : 'Hold to record voice'
+                      }
                     >
                       <Ionicons
-                        name="arrow-up"
+                        name={hasText ? 'arrow-up' : 'mic'}
                         size={20}
                         color={theme.cardBackground}
                       />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </View>
               </TouchableWithoutFeedback>

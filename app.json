@@ -23,6 +23,9 @@
       "versionCode": 14,
       "allowBackup": false,
       "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "RECORD_AUDIO"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -53,6 +56,13 @@
         "expo-navigation-bar",
         {
           "enforceContrast": false
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Permite a la aplicación grabar notas de voz.",
+          "speechRecognitionPermission": "Permite a la aplicación reconocer tu voz."
         }
       ]
     ]

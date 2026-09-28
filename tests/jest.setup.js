@@ -7,6 +7,26 @@ jest.mock('expo-font', () => ({
   useFonts: jest.fn(() => [true, null]),
 }));
 
+// Mock expo-haptics
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
+}));
+
+// Mock expo-speech-recognition
+jest.mock('expo-speech-recognition', () => ({
+  ExpoSpeechRecognitionModule: {
+    requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+    start: jest.fn(),
+    stop: jest.fn(),
+    abort: jest.fn(),
+    getStateAsync: jest.fn(() => Promise.resolve('inactive')),
+  },
+  useSpeechRecognitionEvent: jest.fn(),
+}));
+
 // Mock @expo/vector-icons
 jest.mock('@expo/vector-icons', () => {
   const React = require('react');

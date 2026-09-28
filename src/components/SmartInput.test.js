@@ -120,4 +120,14 @@ describe('SmartInput Component', () => {
 
     expect(queryByTestId('smart-input-modal')).toBeNull();
   });
+
+  it('renders microphone icon button when input text is empty', async () => {
+    const { getByLabelText } = await renderSmartInput({ value: '' });
+    expect(getByLabelText('Mantener para grabar por voz')).toBeTruthy();
+  });
+
+  it('renders send arrow button when input text is non-empty', async () => {
+    const { getByLabelText } = await renderSmartInput({ value: 'Nueva tarea' });
+    expect(getByLabelText('Enviar')).toBeTruthy();
+  });
 });
