@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
 
   /** Slot de altura fija: unidad fundamental de la rejilla del drag */
   slotContainer: {
-    height:       CARD_HEIGHT,
+    minHeight:    CARD_HEIGHT,
     marginBottom: CARD_GAP,
   },
 

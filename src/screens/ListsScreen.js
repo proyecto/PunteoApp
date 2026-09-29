@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
    * quien se mueve mediante `transform.translateY` dentro del slot.
    */
   slotContainer: {
-    height:       CARD_HEIGHT,
+    minHeight:    CARD_HEIGHT,
     marginBottom: CARD_GAP,
   },
 

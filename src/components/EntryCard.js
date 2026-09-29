@@ -7,7 +7,7 @@
  * cambiar de pestaña o alternar estados secundarios.
  */
 
-import React, { memo } from 'react';
+import React, { memo, useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { AppText as Text } from './Typography';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,6 +44,21 @@ function EntryCard({
     : theme.textSecondary;
 
   const signifierSymbol = getSignifierSymbol(item.signifier);
+
+  const [isTruncated, setIsTruncated] = useState(() => {
+    return item?.text ? item.text.split('\n').length > 2 : false;
+  });
+
+  useEffect(() => {
+    setIsTruncated(item?.text ? item.text.split('\n').length > 2 : false);
+  }, [item?.text]);
+
+  const handleTextLayout = useCallback((e) => {
+    const lines = e.nativeEvent?.lines;
+    if (lines && lines.length > 2) {
+      setIsTruncated(true);
+    }
+  }, []);
 
   return (
     <View
@@ -122,9 +137,20 @@ function EntryCard({
               { color: theme.text },
               isCompleted && { color: theme.textCompleted, textDecorationLine: 'line-through' },
             ]}
-            numberOfLines={3}
+            numberOfLines={2}
+            onTextLayout={handleTextLayout}
           >
             {item.text}
+            {isTruncated ? (
+              <Text
+                style={[
+                  styles.readMoreText,
+                  { color: isCompleted ? theme.textCompleted : theme.primary },
+                ]}
+              >
+                {language === 'es' ? ' (leer más)' : ' (read more)'}
+              </Text>
+            ) : null}
           </Text>
         </TouchableOpacity>
       </View>
@@ -215,6 +241,11 @@ const styles = StyleSheet.create({
   },
   cardText: {
     flex: 1,
+  },
+  readMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontStyle: 'italic',
   },
   actionButtons: {
     flexDirection: 'row',
