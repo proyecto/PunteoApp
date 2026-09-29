@@ -440,42 +440,42 @@ export default function DailyLogScreen({ navigation }) {
           >
             {/* Selector de tipo: Tarea */}
             <TouchableOpacity
-              style={[styles.typeButton, { backgroundColor: selectedType === 'task' ? theme.text : theme.inputBackground }]}
+              style={[styles.typeButton, { backgroundColor: selectedType === 'task' ? theme.primary : theme.inputBackground }]}
               onPress={() => setSelectedType('task')}
               accessibilityLabel={language === 'es' ? 'Tarea' : 'Task'}
             >
-              <Ionicons name="ellipse" size={10} color={selectedType === 'task' ? theme.cardBackground : theme.iconInactive} />
-              <Text style={{ marginLeft: 4, fontSize: 11, fontWeight: selectedType === 'task' ? '600' : '400', color: selectedType === 'task' ? theme.cardBackground : theme.textSecondary }}>
+              <Ionicons name="ellipse" size={10} color={selectedType === 'task' ? '#FFFFFF' : theme.iconInactive} />
+              <Text style={{ marginLeft: 4, fontSize: 11, fontWeight: selectedType === 'task' ? '600' : '400', color: selectedType === 'task' ? '#FFFFFF' : theme.textSecondary }}>
                 {language === 'es' ? 'Tarea' : 'Task'}
               </Text>
             </TouchableOpacity>
 
             {/* Selector de tipo: Evento */}
             <TouchableOpacity
-              style={[styles.typeButton, { backgroundColor: selectedType === 'event' ? theme.text : theme.inputBackground }]}
+              style={[styles.typeButton, { backgroundColor: selectedType === 'event' ? theme.primary : theme.inputBackground }]}
               onPress={() => {
                 setSelectedType('event');
                 setSelectedSignifier(null);
               }}
               accessibilityLabel={language === 'es' ? 'Evento' : 'Event'}
             >
-              <Ionicons name="ellipse-outline" size={12} color={selectedType === 'event' ? theme.cardBackground : theme.iconInactive} />
-              <Text style={{ marginLeft: 4, fontSize: 11, fontWeight: selectedType === 'event' ? '600' : '400', color: selectedType === 'event' ? theme.cardBackground : theme.textSecondary }}>
+              <Ionicons name="ellipse-outline" size={12} color={selectedType === 'event' ? '#FFFFFF' : theme.iconInactive} />
+              <Text style={{ marginLeft: 4, fontSize: 11, fontWeight: selectedType === 'event' ? '600' : '400', color: selectedType === 'event' ? '#FFFFFF' : theme.textSecondary }}>
                 {language === 'es' ? 'Evento' : 'Event'}
               </Text>
             </TouchableOpacity>
 
             {/* Selector de tipo: Nota */}
             <TouchableOpacity
-              style={[styles.typeButton, { backgroundColor: selectedType === 'note' ? theme.text : theme.inputBackground }]}
+              style={[styles.typeButton, { backgroundColor: selectedType === 'note' ? theme.primary : theme.inputBackground }]}
               onPress={() => {
                 setSelectedType('note');
                 setSelectedSignifier(null);
               }}
               accessibilityLabel={language === 'es' ? 'Nota' : 'Note'}
             >
-              <Ionicons name="remove" size={16} color={selectedType === 'note' ? theme.cardBackground : theme.iconInactive} />
-              <Text style={{ marginLeft: 2, fontSize: 11, fontWeight: selectedType === 'note' ? '600' : '400', color: selectedType === 'note' ? theme.cardBackground : theme.textSecondary }}>
+              <Ionicons name="remove" size={16} color={selectedType === 'note' ? '#FFFFFF' : theme.iconInactive} />
+              <Text style={{ marginLeft: 2, fontSize: 11, fontWeight: selectedType === 'note' ? '600' : '400', color: selectedType === 'note' ? '#FFFFFF' : theme.textSecondary }}>
                 {language === 'es' ? 'Nota' : 'Note'}
               </Text>
             </TouchableOpacity>
@@ -489,7 +489,7 @@ export default function DailyLogScreen({ navigation }) {
                 <TouchableOpacity
                   style={[
                     styles.typeButton,
-                    { backgroundColor: selectedSignifier === 'priority' ? theme.text : theme.inputBackground },
+                    { backgroundColor: selectedSignifier === 'priority' ? theme.primary : theme.inputBackground },
                   ]}
                   onPress={() => setSelectedSignifier(selectedSignifier === 'priority' ? null : 'priority')}
                   accessibilityLabel={language === 'es' ? 'Prioridad (*)' : 'Priority (*)'}
@@ -499,12 +499,12 @@ export default function DailyLogScreen({ navigation }) {
                       fontSize: 14,
                       fontWeight: 'bold',
                       lineHeight: 16,
-                      color: selectedSignifier === 'priority' ? theme.cardBackground : theme.iconInactive,
+                      color: selectedSignifier === 'priority' ? '#FFFFFF' : theme.iconInactive,
                     }}
                   >
                     *
                   </Text>
-                  <Text style={{ marginLeft: 2, fontSize: 11, fontWeight: selectedSignifier === 'priority' ? '600' : '400', color: selectedSignifier === 'priority' ? theme.cardBackground : theme.textSecondary }}>
+                  <Text style={{ marginLeft: 2, fontSize: 11, fontWeight: selectedSignifier === 'priority' ? '600' : '400', color: selectedSignifier === 'priority' ? '#FFFFFF' : theme.textSecondary }}>
                     {language === 'es' ? 'Prioridad' : 'Priority'}
                   </Text>
                 </TouchableOpacity>
@@ -513,7 +513,7 @@ export default function DailyLogScreen({ navigation }) {
                 <TouchableOpacity
                   style={[
                     styles.typeButton,
-                    { backgroundColor: selectedSignifier === 'inspiration' ? theme.text : theme.inputBackground },
+                    { backgroundColor: selectedSignifier === 'inspiration' ? theme.primary : theme.inputBackground },
                   ]}
                   onPress={() => setSelectedSignifier(selectedSignifier === 'inspiration' ? null : 'inspiration')}
                   accessibilityLabel={language === 'es' ? 'Inspiración (!)' : 'Idea (!)'}
@@ -522,12 +522,12 @@ export default function DailyLogScreen({ navigation }) {
                     style={{
                       fontSize: 12,
                       fontWeight: 'bold',
-                      color: selectedSignifier === 'inspiration' ? theme.cardBackground : theme.iconInactive,
+                      color: selectedSignifier === 'inspiration' ? '#FFFFFF' : theme.iconInactive,
                     }}
                   >
                     !
                   </Text>
-                  <Text style={{ marginLeft: 2, fontSize: 11, fontWeight: selectedSignifier === 'inspiration' ? '600' : '400', color: selectedSignifier === 'inspiration' ? theme.cardBackground : theme.textSecondary }}>
+                  <Text style={{ marginLeft: 2, fontSize: 11, fontWeight: selectedSignifier === 'inspiration' ? '600' : '400', color: selectedSignifier === 'inspiration' ? '#FFFFFF' : theme.textSecondary }}>
                     {language === 'es' ? 'Idea' : 'Idea'}
                   </Text>
                 </TouchableOpacity>

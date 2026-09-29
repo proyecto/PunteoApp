@@ -130,4 +130,43 @@ describe('SmartInput Component', () => {
     const { getByLabelText } = await renderSmartInput({ value: 'Nueva tarea' });
     expect(getByLabelText('Enviar')).toBeTruthy();
   });
+
+  it('submits voice recording only once per session', async () => {
+    jest.useFakeTimers();
+    const onSubmit = jest.fn();
+    const { getByLabelText } = await renderSmartInput({ value: '', onSubmit });
+
+    const micButton = getByLabelText('Mantener para grabar por voz');
+
+    // Start recording by pressIn
+    fireEvent(micButton, 'pressIn');
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+
+    // Simulate speech recognition event setting transcript
+    const { useSpeechRecognitionEvent } = require('expo-speech-recognition');
+    const resultHandler = useSpeechRecognitionEvent.mock?.calls?.find(call => call[0] === 'result')?.[1];
+
+    if (resultHandler) {
+      act(() => {
+        resultHandler({ results: [{ transcript: 'Comprar pan' }] });
+      });
+    }
+
+    // Stop recording by pressOut
+    fireEvent(micButton, 'pressOut');
+
+    // Simulate late result event fired by native Android speech engine upon stop
+    if (resultHandler) {
+      act(() => {
+        resultHandler({ results: [{ transcript: 'Comprar pan.' }] });
+      });
+    }
+
+    // Verify onSubmit was only called once
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith('Comprar pan', { isVoice: true });
+    jest.useRealTimers();
+  });
 });

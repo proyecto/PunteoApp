@@ -380,7 +380,7 @@ export default function CustomDatePickerModal({
                         style={[
                           styles.shortcutChip,
                           {
-                            backgroundColor: isSelected ? theme.text : theme.inputBackground,
+                            backgroundColor: isSelected ? theme.primary : theme.inputBackground,
                           },
                         ]}
                       >
@@ -388,7 +388,7 @@ export default function CustomDatePickerModal({
                           variant="micro"
                           style={[
                             styles.shortcutText,
-                            { color: isSelected ? theme.cardBackground : theme.text },
+                            { color: isSelected ? '#FFFFFF' : theme.text },
                           ]}
                         >
                           {sc.label}
@@ -435,7 +435,7 @@ export default function CustomDatePickerModal({
                       onPress={() => handleSelectDay(cell)}
                       style={[
                         styles.dayCell,
-                        isSelected && [styles.selectedDayCell, { backgroundColor: theme.text }],
+                        isSelected && [styles.selectedDayCell, { backgroundColor: theme.primary }],
                         isToday && !isSelected && [styles.todayCell, { borderColor: theme.textSecondary }],
                       ]}
                       activeOpacity={0.7}
@@ -543,10 +543,10 @@ export default function CustomDatePickerModal({
               {/* Botón de Confirmación */}
               <View style={styles.footer}>
                 <TouchableOpacity
-                  style={[styles.confirmButton, { backgroundColor: theme.text }]}
+                  style={[styles.confirmButton, { backgroundColor: theme.primary }]}
                   onPress={handleConfirm}
                 >
-                  <Text variant="h3" style={[styles.confirmButtonText, { color: theme.cardBackground }]}>
+                  <Text variant="h3" style={[styles.confirmButtonText, { color: '#FFFFFF' }]}>
                     {language === 'es' ? 'Listo' : 'Apply'}
                   </Text>
                 </TouchableOpacity>

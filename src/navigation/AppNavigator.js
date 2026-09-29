@@ -52,7 +52,7 @@ function BottomTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: theme.text,
+        tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.iconInactive,
         headerShown: false,
         tabBarHideOnKeyboard: true, // Ocultar pestañas al escribir

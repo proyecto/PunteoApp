@@ -63,7 +63,7 @@ describe('SettingsContext', () => {
     expect(saved.themePreference).toBe('dark');
   });
 
-  it('switches correctly to artistic themes (sepia, obsidian, light, nord, matcha)', async () => {
+  it('switches correctly to curated themes (sepia, dark, nord, system)', async () => {
     const wrapper = ({ children }) => <SettingsProvider>{children}</SettingsProvider>;
     const { result } = await renderHook(() => useSettings(), { wrapper });
 
@@ -78,24 +78,15 @@ describe('SettingsContext', () => {
     expect(result.current.isDark).toBe(false);
     expect(result.current.fontFamily).toBe('eb-garamond');
 
-    // 2. Obsidian Slate
+    // 2. Monocromo Oscuro
     await act(async () => {
-      result.current.setThemePreference('obsidian');
+      result.current.setThemePreference('dark');
     });
-    expect(result.current.themePreference).toBe('obsidian');
-    expect(result.current.theme).toEqual(obsidianTheme);
+    expect(result.current.themePreference).toBe('dark');
+    expect(result.current.theme).toEqual(darkTheme);
     expect(result.current.isDark).toBe(true);
-    expect(result.current.fontFamily).toBe('jetbrains');
 
-    // 3. Monocromo (B&W)
-    await act(async () => {
-      result.current.setThemePreference('light');
-    });
-    expect(result.current.themePreference).toBe('light');
-    expect(result.current.theme).toEqual(lightTheme);
-    expect(result.current.isDark).toBe(false);
-
-    // 4. Arctic Nord
+    // 3. Arctic Nord
     await act(async () => {
       result.current.setThemePreference('nord');
     });
@@ -104,41 +95,12 @@ describe('SettingsContext', () => {
     expect(result.current.isDark).toBe(true);
     expect(result.current.fontFamily).toBe('space-mono');
 
-    // 5. Matcha Zen
+    // 4. Automático (Sistema)
     await act(async () => {
-      result.current.setThemePreference('matcha');
+      result.current.setThemePreference('system');
     });
-    expect(result.current.themePreference).toBe('matcha');
-    expect(result.current.theme).toEqual(matchaTheme);
-    expect(result.current.isDark).toBe(false);
-    expect(result.current.fontFamily).toBe('quicksand');
-
-    // 6. Coral Dinámico (Asana)
-    await act(async () => {
-      result.current.setThemePreference('asana');
-    });
-    expect(result.current.themePreference).toBe('asana');
-    expect(result.current.theme).toEqual(asanaTheme);
-    expect(result.current.isDark).toBe(false);
-    expect(result.current.fontFamily).toBe('rubik');
-
-    // 7. Rubí Enfoque (Todoist)
-    await act(async () => {
-      result.current.setThemePreference('todoist');
-    });
-    expect(result.current.themePreference).toBe('todoist');
-    expect(result.current.theme).toEqual(todoistTheme);
-    expect(result.current.isDark).toBe(false);
-    expect(result.current.fontFamily).toBe('lato');
-
-    // 8. Azul Tablero (Trello)
-    await act(async () => {
-      result.current.setThemePreference('trello');
-    });
-    expect(result.current.themePreference).toBe('trello');
-    expect(result.current.theme).toEqual(trelloTheme);
-    expect(result.current.isDark).toBe(false);
-    expect(result.current.fontFamily).toBe('ubuntu');
+    expect(result.current.themePreference).toBe('system');
+    expect(result.current.theme).toEqual(systemLightTheme);
   });
 
   it('respects syncThemeFont toggle when switching themes', async () => {

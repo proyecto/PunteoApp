@@ -40,7 +40,7 @@ function EntryCard({
   const iconColor = isCompleted
     ? theme.textCompleted
     : item.type === 'task'
-    ? theme.text
+    ? theme.primary
     : theme.textSecondary;
 
   const signifierSymbol = getSignifierSymbol(item.signifier);
@@ -74,7 +74,7 @@ function EntryCard({
             <Text
               style={[
                 styles.signifierText,
-                { color: isCompleted ? theme.textCompleted : theme.text, marginRight: item.signifier ? 0 : 2 },
+                { color: isCompleted ? theme.textCompleted : theme.primary, marginRight: item.signifier ? 0 : 2 },
               ]}
             >
               {'>'}
@@ -84,7 +84,7 @@ function EntryCard({
             <Text
               style={[
                 styles.signifierText,
-                { color: isCompleted ? theme.textCompleted : theme.text },
+                { color: isCompleted ? theme.textCompleted : theme.primary },
               ]}
             >
               {signifierSymbol}

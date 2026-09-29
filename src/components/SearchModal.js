@@ -74,7 +74,7 @@ export default function SearchModal({ visible, onClose, onSelectResult }) {
             <Text
               style={[
                 styles.signifierText,
-                { color: isCompleted ? theme.textCompleted : theme.text },
+                { color: isCompleted ? theme.textCompleted : theme.primary },
               ]}
             >
               {getSignifierSymbol(item.signifier)}
@@ -83,7 +83,7 @@ export default function SearchModal({ visible, onClose, onSelectResult }) {
           <Ionicons
             name={iconName}
             size={item.type === 'note' ? 20 : 14}
-            color={isCompleted ? theme.textCompleted : theme.text}
+            color={isCompleted ? theme.textCompleted : item.type === 'task' ? theme.primary : theme.textSecondary}
           />
         </View>
 

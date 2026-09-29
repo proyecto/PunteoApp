@@ -55,6 +55,7 @@ export default function SmartInput({
   const isRecordingRef = useRef(false);
   const permissionsGrantedRef = useRef(false);
   const pendingVoiceSubmitRef = useRef(false);
+  const hasSubmittedVoiceRef = useRef(false);
   const submittedVoiceTextRef = useRef('');
   const installedLocalesRef = useRef([]);
 
@@ -113,11 +114,12 @@ export default function SmartInput({
       setTranscript(text);
       transcriptRef.current = text;
 
-      // Si el usuario ya soltó el botón de grabar y el resultado final llega con un pequeño retraso
+      // Si el usuario ya soltó el botón de grabar pero aún no se había enviado (esperando resultado final)
       const trimmed = text.trim();
-      if (pendingVoiceSubmitRef.current && trimmed && trimmed !== submittedVoiceTextRef.current) {
-        submittedVoiceTextRef.current = trimmed;
+      if (pendingVoiceSubmitRef.current && !hasSubmittedVoiceRef.current && trimmed) {
+        hasSubmittedVoiceRef.current = true;
         pendingVoiceSubmitRef.current = false;
+        submittedVoiceTextRef.current = trimmed;
         handleSubmit(trimmed, { isVoice: true });
       }
     }
@@ -166,8 +168,6 @@ export default function SmartInput({
 
       setIsRecording(false);
       isRecordingRef.current = false;
-      pendingVoiceSubmitRef.current = shouldSubmit;
-      submittedVoiceTextRef.current = '';
 
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -177,24 +177,28 @@ export default function SmartInput({
         ExpoSpeechRecognitionModule.stop();
       } catch (e) {}
 
-      if (shouldSubmit) {
+      if (shouldSubmit && !hasSubmittedVoiceRef.current) {
         const currentText = transcriptRef.current?.trim();
         if (currentText) {
+          hasSubmittedVoiceRef.current = true;
+          pendingVoiceSubmitRef.current = false;
           submittedVoiceTextRef.current = currentText;
           handleSubmit(currentText, { isVoice: true });
-        }
-
-        // Dar un margen de 400ms para capturar resultados finales que Android emita tras soltar el botón
-        setTimeout(() => {
-          if (pendingVoiceSubmitRef.current) {
-            const finalText = transcriptRef.current?.trim();
-            if (finalText && finalText !== submittedVoiceTextRef.current) {
-              submittedVoiceTextRef.current = finalText;
-              handleSubmit(finalText, { isVoice: true });
+        } else {
+          // Si no hay texto aún al soltar el botón, esperamos un resultado final durante un breve margen
+          pendingVoiceSubmitRef.current = true;
+          setTimeout(() => {
+            if (pendingVoiceSubmitRef.current && !hasSubmittedVoiceRef.current) {
+              const finalText = transcriptRef.current?.trim();
+              if (finalText) {
+                hasSubmittedVoiceRef.current = true;
+                submittedVoiceTextRef.current = finalText;
+                handleSubmit(finalText, { isVoice: true });
+              }
+              pendingVoiceSubmitRef.current = false;
             }
-            pendingVoiceSubmitRef.current = false;
-          }
-        }, 400);
+          }, 500);
+        }
       }
     },
     [handleSubmit]
@@ -217,6 +221,7 @@ export default function SmartInput({
     setIsRecording(true);
     isRecordingRef.current = true;
     pendingVoiceSubmitRef.current = false;
+    hasSubmittedVoiceRef.current = false;
     submittedVoiceTextRef.current = '';
     setRecordingSeconds(0);
     setTranscript('');
@@ -433,7 +438,7 @@ export default function SmartInput({
                 backgroundColor: isRecording
                   ? '#E53935'
                   : hasText
-                  ? theme.text
+                  ? theme.primary
                   : theme.buttonBackground,
               },
             ]}
@@ -523,7 +528,7 @@ export default function SmartInput({
                           backgroundColor: isRecording
                             ? '#E53935'
                             : hasText
-                            ? theme.text
+                            ? theme.primary
                             : theme.buttonBackground,
                         },
                         hasText || isRecording ? { elevation: 3 } : null,

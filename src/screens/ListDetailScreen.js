@@ -530,7 +530,7 @@ export default function ListDetailScreen({ route, navigation }) {
             <TouchableOpacity
               style={[
                 styles.typeButton,
-                { backgroundColor: selectedSignifier === 'priority' ? theme.text : theme.inputBackground },
+                { backgroundColor: selectedSignifier === 'priority' ? theme.primary : theme.inputBackground },
               ]}
               onPress={() => setSelectedSignifier(selectedSignifier === 'priority' ? null : 'priority')}
               accessibilityLabel={language === 'es' ? 'Prioridad (*)' : 'Priority (*)'}
@@ -539,7 +539,7 @@ export default function ListDetailScreen({ route, navigation }) {
                 style={{
                   fontSize: 14,
                   fontWeight: 'bold',
-                  color: selectedSignifier === 'priority' ? theme.cardBackground : theme.iconInactive,
+                  color: selectedSignifier === 'priority' ? '#FFFFFF' : theme.iconInactive,
                 }}
               >
                 *
@@ -550,7 +550,7 @@ export default function ListDetailScreen({ route, navigation }) {
             <TouchableOpacity
               style={[
                 styles.typeButton,
-                { backgroundColor: selectedSignifier === 'inspiration' ? theme.text : theme.inputBackground },
+                { backgroundColor: selectedSignifier === 'inspiration' ? theme.primary : theme.inputBackground },
               ]}
               onPress={() => setSelectedSignifier(selectedSignifier === 'inspiration' ? null : 'inspiration')}
               accessibilityLabel={language === 'es' ? 'Inspiración (!)' : 'Inspiration (!)'}
@@ -559,7 +559,7 @@ export default function ListDetailScreen({ route, navigation }) {
                 style={{
                   fontSize: 14,
                   fontWeight: 'bold',
-                  color: selectedSignifier === 'inspiration' ? theme.cardBackground : theme.iconInactive,
+                  color: selectedSignifier === 'inspiration' ? '#FFFFFF' : theme.iconInactive,
                 }}
               >
                 !

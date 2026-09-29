@@ -344,19 +344,19 @@ export default function EditEntryModal({
                     <TouchableOpacity
                       style={[
                         styles.typeChip,
-                        { backgroundColor: type === 'task' ? theme.text : theme.inputBackground },
+                        { backgroundColor: type === 'task' ? theme.primary : theme.inputBackground },
                       ]}
                       onPress={() => setType('task')}
                     >
                       <Ionicons
                         name="ellipse"
                         size={10}
-                        color={type === 'task' ? theme.cardBackground : theme.iconInactive}
+                        color={type === 'task' ? '#FFFFFF' : theme.iconInactive}
                       />
                       <Text
                         style={[
                           styles.typeChipText,
-                          { color: type === 'task' ? theme.cardBackground : theme.text },
+                          { color: type === 'task' ? '#FFFFFF' : theme.text },
                         ]}
                       >
                         {language === 'es' ? 'Tarea' : 'Task'}
@@ -366,7 +366,7 @@ export default function EditEntryModal({
                     <TouchableOpacity
                       style={[
                         styles.typeChip,
-                        { backgroundColor: type === 'event' ? theme.text : theme.inputBackground },
+                        { backgroundColor: type === 'event' ? theme.primary : theme.inputBackground },
                       ]}
                       onPress={() => {
                         setType('event');
@@ -376,12 +376,12 @@ export default function EditEntryModal({
                       <Ionicons
                         name="ellipse-outline"
                         size={12}
-                        color={type === 'event' ? theme.cardBackground : theme.iconInactive}
+                        color={type === 'event' ? '#FFFFFF' : theme.iconInactive}
                       />
                       <Text
                         style={[
                           styles.typeChipText,
-                          { color: type === 'event' ? theme.cardBackground : theme.text },
+                          { color: type === 'event' ? '#FFFFFF' : theme.text },
                         ]}
                       >
                         {language === 'es' ? 'Evento' : 'Event'}
@@ -391,7 +391,7 @@ export default function EditEntryModal({
                     <TouchableOpacity
                       style={[
                         styles.typeChip,
-                        { backgroundColor: type === 'note' ? theme.text : theme.inputBackground },
+                        { backgroundColor: type === 'note' ? theme.primary : theme.inputBackground },
                       ]}
                       onPress={() => {
                         setType('note');
@@ -401,12 +401,12 @@ export default function EditEntryModal({
                       <Ionicons
                         name="remove"
                         size={16}
-                        color={type === 'note' ? theme.cardBackground : theme.iconInactive}
+                        color={type === 'note' ? '#FFFFFF' : theme.iconInactive}
                       />
                       <Text
                         style={[
                           styles.typeChipText,
-                          { color: type === 'note' ? theme.cardBackground : theme.text },
+                          { color: type === 'note' ? '#FFFFFF' : theme.text },
                         ]}
                       >
                         {language === 'es' ? 'Nota' : 'Note'}
@@ -424,14 +424,14 @@ export default function EditEntryModal({
                         <TouchableOpacity
                           style={[
                             styles.typeChip,
-                            { backgroundColor: signifier === null ? theme.text : theme.inputBackground },
+                            { backgroundColor: signifier === null ? theme.primary : theme.inputBackground },
                           ]}
                           onPress={() => setSignifier(null)}
                         >
                           <Text
                             style={[
                               styles.typeChipText,
-                              { color: signifier === null ? theme.cardBackground : theme.text },
+                              { color: signifier === null ? '#FFFFFF' : theme.text },
                             ]}
                           >
                             {language === 'es' ? 'Ninguno' : 'None'}
@@ -441,7 +441,7 @@ export default function EditEntryModal({
                         <TouchableOpacity
                           style={[
                             styles.typeChip,
-                            { backgroundColor: signifier === 'priority' ? theme.text : theme.inputBackground },
+                            { backgroundColor: signifier === 'priority' ? theme.primary : theme.inputBackground },
                           ]}
                           onPress={() => setSignifier(signifier === 'priority' ? null : 'priority')}
                         >
@@ -449,7 +449,7 @@ export default function EditEntryModal({
                             style={{
                               fontSize: 14,
                               fontWeight: 'bold',
-                              color: signifier === 'priority' ? theme.cardBackground : theme.text,
+                              color: signifier === 'priority' ? '#FFFFFF' : theme.text,
                             }}
                           >
                             *
@@ -457,7 +457,7 @@ export default function EditEntryModal({
                           <Text
                             style={[
                               styles.typeChipText,
-                              { color: signifier === 'priority' ? theme.cardBackground : theme.text },
+                              { color: signifier === 'priority' ? '#FFFFFF' : theme.text },
                             ]}
                           >
                             {language === 'es' ? 'Prioridad (*)' : 'Priority (*)'}
@@ -467,7 +467,7 @@ export default function EditEntryModal({
                         <TouchableOpacity
                           style={[
                             styles.typeChip,
-                            { backgroundColor: signifier === 'inspiration' ? theme.text : theme.inputBackground },
+                            { backgroundColor: signifier === 'inspiration' ? theme.primary : theme.inputBackground },
                           ]}
                           onPress={() => setSignifier(signifier === 'inspiration' ? null : 'inspiration')}
                         >
@@ -475,7 +475,7 @@ export default function EditEntryModal({
                             style={{
                               fontSize: 12,
                               fontWeight: 'bold',
-                              color: signifier === 'inspiration' ? theme.cardBackground : theme.text,
+                              color: signifier === 'inspiration' ? '#FFFFFF' : theme.text,
                             }}
                           >
                             !
@@ -483,7 +483,7 @@ export default function EditEntryModal({
                           <Text
                             style={[
                               styles.typeChipText,
-                              { color: signifier === 'inspiration' ? theme.cardBackground : theme.text },
+                              { color: signifier === 'inspiration' ? '#FFFFFF' : theme.text },
                             ]}
                           >
                             {language === 'es' ? 'Idea (!)' : 'Idea (!)'}
@@ -535,14 +535,14 @@ export default function EditEntryModal({
                             onPress={() => handleSelectShortcut(sc.date)}
                             style={[
                               styles.shortcutChip,
-                              { backgroundColor: isSelected ? theme.text : theme.inputBackground },
+                              { backgroundColor: isSelected ? theme.primary : theme.inputBackground },
                             ]}
                           >
                             <Text
                               variant="micro"
                               style={[
                                 styles.shortcutText,
-                                { color: isSelected ? theme.cardBackground : theme.text },
+                                { color: isSelected ? '#FFFFFF' : theme.text },
                               ]}
                             >
                               {sc.label}
@@ -589,7 +589,7 @@ export default function EditEntryModal({
                           onPress={() => handleSelectDay(cell)}
                           style={[
                             styles.dayCell,
-                            isSelected && [styles.selectedDayCell, { backgroundColor: theme.text }],
+                            isSelected && [styles.selectedDayCell, { backgroundColor: theme.primary }],
                             isToday && !isSelected && [styles.todayCell, { borderColor: theme.textSecondary }],
                           ]}
                           activeOpacity={0.7}
@@ -704,10 +704,10 @@ export default function EditEntryModal({
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
-                    style={[styles.saveButton, { backgroundColor: theme.text, flex: 1 }]}
+                    style={[styles.saveButton, { backgroundColor: theme.primary, flex: 1 }]}
                     onPress={handleSave}
                   >
-                    <Text variant="h3" style={[styles.saveButtonText, { color: theme.cardBackground }]}>
+                    <Text variant="h3" style={[styles.saveButtonText, { color: '#FFFFFF' }]}>
                       {language === 'es' ? 'Guardar cambios' : 'Save changes'}
                     </Text>
                   </TouchableOpacity>
