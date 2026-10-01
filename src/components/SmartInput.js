@@ -50,6 +50,7 @@ export default function SmartInput({
   const focusTimerRef = useRef(null);
   const recordingTimerRef = useRef(null);
   const startDelayTimerRef = useRef(null);
+  const stopDelayTimerRef = useRef(null);
   const pressStartTimeRef = useRef(0);
   const transcriptRef = useRef('');
   const isRecordingRef = useRef(false);
@@ -113,15 +114,30 @@ export default function SmartInput({
     if (text) {
       setTranscript(text);
       transcriptRef.current = text;
+    }
 
-      // Si el usuario ya soltó el botón de grabar pero aún no se había enviado (esperando resultado final)
-      const trimmed = text.trim();
-      if (pendingVoiceSubmitRef.current && !hasSubmittedVoiceRef.current && trimmed) {
+    // Solo enviar en resultados finales (no interim) cuando el usuario ya soltó el botón
+    if (event.isFinal && pendingVoiceSubmitRef.current && !hasSubmittedVoiceRef.current) {
+      const trimmed = text?.trim();
+      if (trimmed) {
         hasSubmittedVoiceRef.current = true;
         pendingVoiceSubmitRef.current = false;
         submittedVoiceTextRef.current = trimmed;
         handleSubmit(trimmed, { isVoice: true });
       }
+    }
+  });
+
+  // Fallback: cuando la sesión de reconocimiento termina, enviar lo que tengamos
+  useSpeechRecognitionEvent('end', () => {
+    if (pendingVoiceSubmitRef.current && !hasSubmittedVoiceRef.current) {
+      const finalText = transcriptRef.current?.trim();
+      if (finalText) {
+        hasSubmittedVoiceRef.current = true;
+        submittedVoiceTextRef.current = finalText;
+        handleSubmit(finalText, { isVoice: true });
+      }
+      pendingVoiceSubmitRef.current = false;
     }
   });
 
@@ -164,6 +180,11 @@ export default function SmartInput({
         recordingTimerRef.current = null;
       }
 
+      if (stopDelayTimerRef.current) {
+        clearTimeout(stopDelayTimerRef.current);
+        stopDelayTimerRef.current = null;
+      }
+
       if (!isRecordingRef.current) return;
 
       setIsRecording(false);
@@ -173,35 +194,20 @@ export default function SmartInput({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } catch (e) {}
 
-      try {
-        ExpoSpeechRecognitionModule.stop();
-      } catch (e) {}
-
       if (shouldSubmit && !hasSubmittedVoiceRef.current) {
-        const currentText = transcriptRef.current?.trim();
-        if (currentText) {
-          hasSubmittedVoiceRef.current = true;
-          pendingVoiceSubmitRef.current = false;
-          submittedVoiceTextRef.current = currentText;
-          handleSubmit(currentText, { isVoice: true });
-        } else {
-          // Si no hay texto aún al soltar el botón, esperamos un resultado final durante un breve margen
-          pendingVoiceSubmitRef.current = true;
-          setTimeout(() => {
-            if (pendingVoiceSubmitRef.current && !hasSubmittedVoiceRef.current) {
-              const finalText = transcriptRef.current?.trim();
-              if (finalText) {
-                hasSubmittedVoiceRef.current = true;
-                submittedVoiceTextRef.current = finalText;
-                handleSubmit(finalText, { isVoice: true });
-              }
-              pendingVoiceSubmitRef.current = false;
-            }
-          }, 500);
-        }
+        pendingVoiceSubmitRef.current = true;
       }
+
+      // Retrasar stop() 1.5s para que el motor de reconocimiento procese el audio final.
+      // Esto evita ERROR_CLIENT (race condition conocida) en Android.
+      stopDelayTimerRef.current = setTimeout(() => {
+        try {
+          ExpoSpeechRecognitionModule.stop();
+        } catch (e) {}
+        stopDelayTimerRef.current = null;
+      }, 1500);
     },
-    [handleSubmit]
+    []
   );
 
   const getBestLanguageCode = () => {
@@ -265,28 +271,18 @@ export default function SmartInput({
 
       const targetLang = getBestLanguageCode();
 
-      let servicePackage;
-      try {
-        if (typeof ExpoSpeechRecognitionModule.getSpeechRecognitionServices === 'function') {
-          const services = ExpoSpeechRecognitionModule.getSpeechRecognitionServices();
-          if (Array.isArray(services) && services.includes('com.google.android.as')) {
-            servicePackage = 'com.google.android.as';
-          }
-        }
-      } catch (e) {}
-
       ExpoSpeechRecognitionModule.start({
         lang: targetLang,
         interimResults: true,
-        maxAlternatives: 2,
+        continuous: true,
+        maxAlternatives: 1,
         addsPunctuation: true,
         iosTaskHint: 'dictation',
         androidIntent: 'android.speech.action.RECOGNIZE_SPEECH',
-        androidRecognitionServicePackage: servicePackage,
         androidIntentOptions: {
           EXTRA_LANGUAGE_MODEL: 'free_form',
-          EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
-          EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
+          EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 5000,
+          EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 3000,
         },
       });
     } catch (err) {
@@ -341,6 +337,9 @@ export default function SmartInput({
       }
       if (startDelayTimerRef.current) {
         clearTimeout(startDelayTimerRef.current);
+      }
+      if (stopDelayTimerRef.current) {
+        clearTimeout(stopDelayTimerRef.current);
       }
     };
   }, []);

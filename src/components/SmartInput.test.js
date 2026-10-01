@@ -147,26 +147,40 @@ describe('SmartInput Component', () => {
     // Simulate speech recognition event setting transcript
     const { useSpeechRecognitionEvent } = require('expo-speech-recognition');
     const resultHandler = useSpeechRecognitionEvent.mock?.calls?.find(call => call[0] === 'result')?.[1];
+    const endHandler = useSpeechRecognitionEvent.mock?.calls?.find(call => call[0] === 'end')?.[1];
 
+    // Interim result (isFinal=false) — should NOT trigger submit
     if (resultHandler) {
       act(() => {
-        resultHandler({ results: [{ transcript: 'Comprar pan' }] });
+        resultHandler({ results: [{ transcript: 'Comprar pan' }], isFinal: false });
       });
     }
 
     // Stop recording by pressOut
     fireEvent(micButton, 'pressOut');
 
-    // Simulate late result event fired by native Android speech engine upon stop
+    // Final result from the native engine (isFinal=true)
     if (resultHandler) {
       act(() => {
-        resultHandler({ results: [{ transcript: 'Comprar pan.' }] });
+        resultHandler({ results: [{ transcript: 'Comprar pan.' }], isFinal: true });
       });
     }
 
-    // Verify onSubmit was only called once
+    // Advance past the delayed stop (1500ms)
+    act(() => {
+      jest.advanceTimersByTime(1600);
+    });
+
+    // Simulate the end event (fallback — should not double-submit)
+    if (endHandler) {
+      act(() => {
+        endHandler();
+      });
+    }
+
+    // Verify onSubmit was only called once with the final full transcript
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledWith('Comprar pan', { isVoice: true });
+    expect(onSubmit).toHaveBeenCalledWith('Comprar pan.', { isVoice: true });
     jest.useRealTimers();
   });
 });

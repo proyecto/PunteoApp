@@ -62,7 +62,8 @@
         "expo-speech-recognition",
         {
           "microphonePermission": "Permite a la aplicación grabar notas de voz.",
-          "speechRecognitionPermission": "Permite a la aplicación reconocer tu voz."
+          "speechRecognitionPermission": "Permite a la aplicación reconocer tu voz.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
         }
       ]
     ]
