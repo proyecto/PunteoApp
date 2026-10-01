@@ -88,9 +88,6 @@ export default function ListDetailScreen({ route, navigation }) {
   /** Texto en curso del campo de nuevo elemento */
   const [inputText, setInputText] = useState('');
 
-  /** Significador purista seleccionado para el nuevo elemento ('priority' | 'inspiration' | null) */
-  const [selectedSignifier, setSelectedSignifier] = useState(null);
-
   /** Elemento que el usuario está editando (pulsación larga) */
   const [editingItem, setEditingItem] = useState(null);
 
@@ -222,12 +219,10 @@ export default function ListDetailScreen({ route, navigation }) {
       inputText,
       list.id,
       timezone,
-      orderedItems.length,  // order_index = al final de la lista actual
-      selectedSignifier
+      orderedItems.length  // order_index = al final de la lista actual
     );
     addEntry(newEntry);
     setInputText('');
-    setSelectedSignifier(null);
   };
 
   /**
@@ -524,49 +519,6 @@ export default function ListDetailScreen({ route, navigation }) {
         onChangeText={setInputText}
         onSubmit={handleAddItem}
         placeholder={language === 'es' ? 'Añadir elemento...' : 'Add item...'}
-        topContent={
-          <>
-            {/* Significador purista: Prioridad (*) */}
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                { backgroundColor: selectedSignifier === 'priority' ? theme.primary : theme.inputBackground },
-              ]}
-              onPress={() => setSelectedSignifier(selectedSignifier === 'priority' ? null : 'priority')}
-              accessibilityLabel={language === 'es' ? 'Prioridad (*)' : 'Priority (*)'}
-            >
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontWeight: 'bold',
-                  color: selectedSignifier === 'priority' ? '#FFFFFF' : theme.iconInactive,
-                }}
-              >
-                *
-              </Text>
-            </TouchableOpacity>
-
-            {/* Significador purista: Inspiración (!) */}
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                { backgroundColor: selectedSignifier === 'inspiration' ? theme.primary : theme.inputBackground },
-              ]}
-              onPress={() => setSelectedSignifier(selectedSignifier === 'inspiration' ? null : 'inspiration')}
-              accessibilityLabel={language === 'es' ? 'Inspiración (!)' : 'Inspiration (!)'}
-            >
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontWeight: 'bold',
-                  color: selectedSignifier === 'inspiration' ? '#FFFFFF' : theme.iconInactive,
-                }}
-              >
-                !
-              </Text>
-            </TouchableOpacity>
-          </>
-        }
       />
 
       {/* ── Modal: Edición completa del elemento (texto, tipo, significador, fecha, hora) ──── */}
@@ -658,13 +610,6 @@ const styles = StyleSheet.create({
     marginLeft:     4,
     marginRight:    -4,
     alignItems:     'center',
-    justifyContent: 'center',
-  },
-  typeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignItems: 'center',
     justifyContent: 'center',
   },
 
