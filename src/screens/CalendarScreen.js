@@ -25,6 +25,7 @@ LocaleConfig.locales['en'] = {
   dayNamesShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   today: 'Today'
 };
+LocaleConfig.defaultLocale = 'es';
 
 export default function CalendarScreen({ navigation }) {
   const { entries, toggleStatus, toggleSignifier, updateEntryDate } = useJournal();
@@ -35,8 +36,10 @@ export default function CalendarScreen({ navigation }) {
   const [reschedulingItem, setReschedulingItem] = useState(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
 
+  LocaleConfig.defaultLocale = language || 'es';
+
   useEffect(() => {
-    LocaleConfig.defaultLocale = language;
+    LocaleConfig.defaultLocale = language || 'es';
   }, [language]);
 
   const handleSelectSearchResult = (item) => {
@@ -90,37 +93,41 @@ export default function CalendarScreen({ navigation }) {
       if (hasEntries) {
         itemConfig.marked = true;
         itemConfig.dotColor = isSelected
-          ? theme.cardBackground
+          ? '#FFFFFF'
           : (theme.primary || '#007AFF');
       }
 
       // Estilos customizados
       if (isSelected) {
-        // Día visualizado: contenedor con color primario/texto y texto en contraste
+        // Día visualizado: contenedor con color primario del tema y texto de alto contraste
         itemConfig.customStyles = {
           container: {
-            backgroundColor: theme.text,
-            borderRadius: 20,
+            backgroundColor: theme.primary,
+            borderRadius: 16,
             alignItems: 'center',
             justifyContent: 'center',
           },
           text: {
-            color: theme.cardBackground,
+            color: '#FFFFFF',
             fontWeight: '700',
+            backgroundColor: 'transparent',
           },
         };
       } else if (isToday) {
-        // Día actual (HOY): contenedor sutil según tema
+        // Día actual (HOY): indicador sutil y elegante con color primario
         itemConfig.customStyles = {
           container: {
-            backgroundColor: theme.buttonBackground,
-            borderRadius: 4,
+            borderWidth: 1.5,
+            borderColor: theme.primary,
+            borderRadius: 16,
             alignItems: 'center',
             justifyContent: 'center',
+            backgroundColor: 'transparent',
           },
           text: {
-            color: theme.text,
+            color: theme.primary,
             fontWeight: '700',
+            backgroundColor: 'transparent',
           },
         };
       }
@@ -131,6 +138,24 @@ export default function CalendarScreen({ navigation }) {
     return result;
   }, [entries, selectedDate, theme, today]);
 
+  // Título legible para la cabecera de la lista inferior
+  const formattedDateTitle = useMemo(() => {
+    if (selectedDate === today) {
+      return language === 'es' ? 'Hoy' : 'Today';
+    }
+    try {
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const d = new Date(year, month - 1, day, 12, 0, 0);
+      const formatted = d.toLocaleDateString(
+        language === 'es' ? 'es-ES' : 'en-US',
+        { weekday: 'long', day: 'numeric', month: 'long' }
+      );
+      return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    } catch {
+      return selectedDate;
+    }
+  }, [selectedDate, today, language]);
+
   // Filtrar las entradas para el día seleccionado usando el servicio central
   const selectedEntries = useMemo(() => {
     return filterEntriesForDay(entries, selectedDate, today);
@@ -139,6 +164,11 @@ export default function CalendarScreen({ navigation }) {
   const renderItem = useCallback(({ item }) => {
     const isCompleted = isEntryCompleted(item, today);
     const iconName = getEntryIcon(item, today);
+    const iconColor = isCompleted
+      ? theme.textCompleted
+      : item.type === 'task'
+      ? theme.primary
+      : theme.textSecondary;
 
     return (
       <View style={[styles.itemContainer, { backgroundColor: theme.cardBackground }]}>
@@ -161,7 +191,7 @@ export default function CalendarScreen({ navigation }) {
           <Ionicons 
             name={iconName} 
             size={item.type === 'note' ? 20 : 14} 
-            color={isCompleted ? theme.textCompleted : theme.text} 
+            color={iconColor} 
           />
         </TouchableOpacity>
 
@@ -199,18 +229,24 @@ export default function CalendarScreen({ navigation }) {
           setSelectedDate(day.dateString);
         }}
         markedDates={markedDates}
+        key={`${theme.id}_${language}`}
         theme={{
           backgroundColor: theme.background,
-          calendarBackground: theme.cardBackground,
+          calendarBackground: theme.background,
           textSectionTitleColor: theme.textSecondary,
-          selectedDayBackgroundColor: theme.text,
-          selectedDayTextColor: theme.cardBackground,
-          todayTextColor: theme.text,
+          textSectionTitleDisabledColor: theme.textCompleted,
+          selectedDayBackgroundColor: theme.primary,
+          selectedDayTextColor: '#FFFFFF',
+          todayTextColor: theme.primary,
+          todayBackgroundColor: 'transparent',
           dayTextColor: theme.text,
           textDisabledColor: theme.textCompleted,
           dotColor: theme.primary,
-          selectedDotColor: theme.cardBackground,
+          selectedDotColor: '#FFFFFF',
+          disabledDotColor: theme.textCompleted,
+          todayDotColor: theme.primary,
           arrowColor: theme.text,
+          disabledArrowColor: theme.textCompleted,
           monthTextColor: theme.text,
           indicatorColor: theme.primary,
           textDayFontWeight: '500',
@@ -218,14 +254,67 @@ export default function CalendarScreen({ navigation }) {
           textDayHeaderFontWeight: '600',
           textDayFontSize: 16,
           textMonthFontSize: 20,
-          textDayHeaderFontSize: 14
+          textDayHeaderFontSize: 14,
+          // Fix: rgba(0,0,0,0) renderiza como negro visible en Android.
+          textDayStyle: { backgroundColor: 'transparent' },
+          // Override de estilos internos del componente BasicDay
+          'stylesheet.day.basic': {
+            base: {
+              width: 32,
+              height: 32,
+              alignItems: 'center',
+            },
+            today: {
+              backgroundColor: 'transparent',
+              borderRadius: 16,
+            },
+            selected: {
+              backgroundColor: theme.primary,
+              borderRadius: 16,
+            },
+            text: {
+              fontSize: 16,
+              fontWeight: '500',
+              color: theme.text,
+              backgroundColor: 'transparent',
+              marginTop: 4,
+            },
+            todayText: {
+              color: theme.primary,
+            },
+            selectedText: {
+              color: '#FFFFFF',
+            },
+            disabledText: {
+              color: theme.textCompleted,
+            },
+            inactiveText: {
+              color: theme.textCompleted,
+            },
+          },
+          // Override de contenedor principal del calendario
+          'stylesheet.calendar.main': {
+            container: {
+              paddingLeft: 5,
+              paddingRight: 5,
+              backgroundColor: theme.background,
+            },
+            monthView: {
+              backgroundColor: theme.background,
+            },
+            week: {
+              marginVertical: 7,
+              flexDirection: 'row',
+              justifyContent: 'space-around',
+            },
+          },
         }}
-        style={[styles.calendar, { borderColor: theme.border }]}
+        style={[styles.calendar, { borderColor: theme.border, backgroundColor: theme.background }]}
       />
       
       <View style={styles.listHeader}>
         <Text variant="h2" style={[styles.listTitle, { color: theme.text }]}>
-          {selectedDate === today ? (language === 'es' ? 'Hoy' : 'Today') : selectedDate}
+          {formattedDateTitle}
         </Text>
       </View>
 
